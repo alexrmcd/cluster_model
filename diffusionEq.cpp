@@ -3,7 +3,36 @@
 // Diffusion Equation with spatial diffusion, diffusion const independent of spatial coordinate -> D(E).
 //
 #include <iostream>
+#include <fstream>
 #include <math.h>
+#include <cmath>
+
+
+/* to compile and run, use command 
+
+g++ -o diffusionEq diffusionEq.cpp  -I/home/alex/research/darksusy-5.1.2/include -L/home/alex/research/darksusy-5.1.2/lib -ldarksusy -lFH -lHB -lgfortran
+*/
+
+
+
+
+
+// routines for calling fortran/darksusy stuff //////////////////////////////////////////////////
+
+
+extern"C" {	 								//interface with fortran code to initialize darksusy
+
+void dsinit_();
+
+}	
+
+extern"C" {
+double dshayield_(double *mwimp, double *emuthr,int *ch,  int *yieldk, int *istat);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////// 
+
 
 
 double bloss(double E){
@@ -18,6 +47,8 @@ double bloss(double E){
 					+ 0.25*E*E  						//bIC
 					+ 1.51*n*(0.36 + log(E/me/n) )		//bbrem
 					+ 6.13*( 1 + log(E/me/n)/0.75); 	//bcoul
+
+	bloss = bloss *1e-16;	
 
 	return bloss;
 };
@@ -56,12 +87,81 @@ double D(double E){
 
 
 
+double distint(double z){
+	double mpc2cm = 3.085678e24; 	//Mpc to cm
+	double clight = 299792.458;		// km/s
+	double H0 = 70.4;				// km/s/Mpc
+	double OmegaM = 0.272 ; 		
+	double OmegaL = 0.728 ;
+
+	double distint =  clight / ( H0 * sqrt( OmegaM * pow(1 + z , 3)  + OmegaL ) ); 
+
+	return distint;
+
+}
+
+
+//distance as a function of redshift
+double Dist(double z){ 
+
+	double mpc2cm = 3.085678e24; 	//Mpc to cm
+	double clight = 299792.458;		// km/s
+	double H0 = 70.4;				// km/s/Mpc
+	double OmegaM = 0.272 ; 		
+	double OmegaL = 0.728 ;
+
+	int ns = 100;
+
+	double h = z/ns;
+	double simp1 = distint(h/2);
+	double simp2 = 0;
+
+	for (int i = 0 ; i < ns ; ++i){
+		simp1 += distint(h * i + h/2);
+		simp2 += distint( h * i);
+
+	}
+
+	double result =  h/6 * (distint(0) + distint(z) + 4 * simp1 + 2 * simp2);
+
+
+	
+
+
+
+	return result;
+ 		
+}
+
+
+
+
 /*double Root_dv(){      // eventually should be some function of D(E), see colafranceso 
 
 
 	double root_dv = 0.01; //Mpc
 	return root_dv;
 };*/
+
+
+
+
+double bfield_model (double r) {
+
+
+        float Bo = 5.0; //microGauss
+        float rcore = 20; //core radius in kpc
+        float beta = 6;
+        float eta = 0.5;
+
+        double B_field = Bo * pow(( 1 + r*r/(rcore*rcore)),(-3*beta*eta/2));// Storm et al 2013 
+
+
+
+        return B_field;
+
+
+};	
 
 
 
@@ -200,6 +300,107 @@ void runGreens(double r, int ns){ //runs through values of root_dv
 
 
 
+double IntDarksusy(double mx, double E, int ns){
+
+	
+	int ch = 25;
+	int yieldk = 151;
+	int istat;
+
+	double h = (mx - E)/ns;
+	double E0 = E + h/2;
+	double simp1 = dshayield_(&mx, &E0, &ch,  &yieldk, &istat); //f( E + h/2);
+	double simp2 = 0;
+
+	for (int i = 0 ; i < ns ; ++i){
+		double E1 = E + h*i + h/2;
+		double E2 = E + h*i;
+		simp1 += dshayield_(&mx, &E1, &ch,  &yieldk, &istat);	//f( E + h * i + h/2);
+		simp2 += dshayield_(&mx, &E2, &ch,  &yieldk, &istat);	//f( E + h * i);
+
+	}
+
+	double result = h/6 * (dshayield_(&mx, &E, &ch,  &yieldk, &istat) + dshayield_(&mx, &mx, &ch,  &yieldk, &istat) + 4 * simp1 + 2 * simp2);
+
+	//std::cout << " dshayield: " << dshayield_(&mx, &E, &ch,  &yieldk, &istat) <<std::endl;	
+	//std::cout << "integration result: " << result << std::endl;
+	return result;
+
+}
+
+
+
+
+
+double dndeeq(double mx, double E, double r ){
+	int ns = 100	;
+	int imNum = 10;
+	double root_dv = 0.025;
+
+	double dndeeq = 	(1 / bloss(E)) * Greens(r, root_dv, imNum) * IntDarksusy(mx, E, ns)		;
+
+	return dndeeq;
+
+}
+
+
+
+double rundndeeq(double mx, double E, double r ){
+	//std::ofstream rundndeeq("dndeeq.txt");
+	double n = 100;
+	double h = (mx-E)/n;
+
+	for (int ix = 0 ; ix < n + 1; ++ix  ){
+		//Greens(0.05, h*ix, ns )
+
+		std::cout << h*ix << ":  " << dndeeq(mx, h*ix, r ) << std::endl;
+
+	};
+	//rundndeeq.close();
+
+
+}
+
+
+
+
+//SYnchrotron emmission spectral function form Cola2006.
+double fff(double x){
+
+	double fff = 1.25 * pow( x , 1/3) * exp( -x ) * pow((648 + x*x) , 1/12);
+
+
+	return fff;
+}
+
+
+
+
+
+
+double psynIntegrand(double theta, double E){
+
+
+	double bmu = 1; 	//muGauss
+
+	double z = 0.0232;
+
+
+	double nu = 1.4;	//Ghz
+
+	double psyn0 = 1.463232e-25 ; // Gev/s/Hz
+	double x0 = 62.1881 ;			// dimensionless constant
+	double nu_em = ( 1 + z )* nu; // (observing freq)*(1+z)
+
+
+
+	double x = x0 *nu_em / (bmu * E*E) ;
+	double psynIntegrand = psyn0 * bmu * 0.5 * pow( sin(theta) , 2) * fff( x  / std::abs(sin(theta)) ); // fff(x) doesnt like negative arguments, sin(pi) ~ -2e-13, take abs for now(requires cmath)
+
+	return psynIntegrand;
+
+
+}
 
 
 
@@ -208,28 +409,144 @@ void runGreens(double r, int ns){ //runs through values of root_dv
 
 
 
+double psyn(double E, double r){
+
+	double pi = 3.14159265359;
+	//double dndeeq = 1;
+	int ns = 100;
+
+	double h = (pi)/ns;
+	double simp1 = psynIntegrand( h/2, E);
+
+	double simp2 = 0;
+
+	for (int i = 0 ; i < ns ; ++i){
+		simp1 += psynIntegrand( h * i + h/2 , E);
+		simp2 += psynIntegrand(  h * i , E);
+
+	}
+
+	double result = h/6 * (psynIntegrand(0 , E) + psynIntegrand(pi , E) + 4 * simp1 + 2 * simp2);
+	
+
+	double psyn = 2* result * dndeeq(100, E, r);
+	
+
+	return psyn;
+
+}
+
+
+double jsyn(double mx, double r){
+
+
+
+	int ns = 100;
+	double me = 0.000511; //electron mass Gev
+
+	double h = (mx - me)/ns;
+	double simp1 = psyn( me + h/2, r);
+
+	double simp2 = 0;
+
+	for (int i = 0 ; i < ns ; ++i){
+		simp1 += psyn( me + h * i + h/2 ,r );
+		simp2 += psyn(  me + h * i, r);
+
+		//std::cout << "psyn( n = " << i << ") "<<std::endl;
+
+	};	
+
+	double result = h/6 * (psyn(me, r) + psyn(mx, r) + 4 * simp1 + 2 * simp2);
+	
+
+	double jsyn = result;
+	
+
+	return jsyn;
+
+}
 
 
 
 
 
+double ssynIntegrand( double mx, double r){
+	double pi = 3.14159265359;
+	double z = 0.0232;
+
+	double dist_z = Dist(z) / (1+z);
+
+
+	//jsyn(r) << std::endl;
+	double ssynIntegrand = 4 *pi /pow(dist_z , 2) * pow(r,2) * pow(DM_profile(r) , 2)*jsyn(mx, r);	
+
+
+	
+
+
+	return ssynIntegrand;
+}
 
 
 
+double ssyn(double mx, double r){
+
+	int ns = 100;
+	
+
+	double h = r/ns;
+	double simp1 = ssynIntegrand(  mx, h/2);
+
+	double simp2 = 1e-16;
+
+	for (int i = 0 ; i < ns ; ++i){
+		simp1 += ssynIntegrand( mx, h * i + h/2 );
+		simp2 += ssynIntegrand(mx,  h * i + 1e-16);
+
+		//std::cout << mx << " :"<<"ssynIntegrand( n = " << i << ") = " << simp1 <<std::endl;
+
+	};	
+		std::cout << mx << " :" << simp1 << std::endl;
+		std::cout << mx << " :" << simp2 << std::endl;
+		std::cout << mx <<" - ssynIntegrand("<<mx<<", 0):" << ssynIntegrand(mx, 1e-16) << std::endl;
+		std::cout << mx << " - ssynIntegrand("<<mx<<", r):" << ssynIntegrand(mx, r) << std::endl;
+
+	double result = h/6 * (ssynIntegrand(mx, 1e-16) + ssynIntegrand(mx, r) + 4 * simp1 + 2 * simp2);
+	//std::cout << "result "<< result << std::endl;
+
+	double ssyn = result;
+
+	return ssyn;
 
 
+}
 
 
 
 
 main(){
+	dsinit_(); //initialixe DarkSUSY
 
-	int ns = 10000;
-	double r = 0.01;
-	runGreens(r, ns);
+	double r = .415;
 
-	//integrandTest( 0.35 , 0.05);
+	
 
-	//std::cout << "Greens: " << Greens(0.05, 0.01, ns) <<std::endl;
+
+	for (int ix = 1 ; ix < 101; ++ix  ){
+
+			std::cout << "ssyn "<< ssyn(ix, r) << std::endl;
+ 		
+	};
+
+
+
+
+
+
+
+
+
+
 }
 

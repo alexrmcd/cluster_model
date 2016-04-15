@@ -1,10 +1,22 @@
 #include <iostream>
 #include <math.h>
+#include <fstream>
+
 
 
 main(){
-		double p = pow(-1,-1)*0.05 + 2*(-1)*.415;
-		std::cout << p << std::endl;
+
+		//outout path for files ~/research/cluster_model/output/diffuisionEq
+		std::ofstream test("test.txt");	
+		//write test file
+		for (int i =0 ; i < 11 ; ++i){
+
+			test << i << std::endl;
+		}
+
+		test.close();
+
+
 }
 
 

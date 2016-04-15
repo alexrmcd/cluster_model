@@ -1,0 +1,30 @@
+------------- Notes for Coding---------------
+
+
+//////// radioCalc.cpp ////////
+
+
+
+L (~74) psynIntegrate()
+		
+		bfield 
+		nu 
+		pass z?
+		pass E? (for testing, needs to be ~10-100) ------- pass E in diffusionEq.cpp
+L(~120) psyn()
+		
+		dndeeq ----
+		sin(degrees or rad?)
+
+
+
+//////// diffusionEq.cpp ////////
+
+May be good idea to take 0 -> 1e-16 for all integration, for consisiitency
+
+
+
+
+L(~250) ssynIntegrand()
+	
+		z declared in function, best as param? 

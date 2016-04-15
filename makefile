@@ -28,7 +28,9 @@ modtest : modtest.f $(LIB)/libdarksusy.a
          -ldarksusy -lFH -lHB
 
 
-
+dshayield : dshayield.f $(LIB)/libdarksusy.a
+	$(FF) $(FOPT) -I$(INC) -L$(LIB)  -c dshayield.f \
+         -ldarksusy -lFH -lHB
 
 
 

@@ -6,6 +6,7 @@
 #include <fstream>
 #include <math.h>
 #include <cmath>
+#include <ctime>
 
 
 /* to compile and run, use command 
@@ -13,12 +14,7 @@
 g++ -o diffusionEq diffusionEq.cpp  -I/home/alex/research/darksusy-5.1.2/include -L/home/alex/research/darksusy-5.1.2/lib -ldarksusy -lFH -lHB -lgfortran
 */
 
-
-
-
-
-// routines for calling fortran/darksusy stuff //////////////////////////////////////////////////
-
+//////////////////////////// routines for calling fortran/darksusy stuff /////////////////////////
 
 extern"C" {	 								//interface with fortran code to initialize darksusy
 
@@ -31,19 +27,34 @@ double dshayield_(double *mwimp, double *emuthr,int *ch,  int *yieldk, int *ista
 }
 
 
-////////////////////////////////////////////////////////////////////////////////////////////////// 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+double bfield_model (double r) {
+
+
+        float Bo = 4.7; //microGauss
+        float rcore = 8.9793e23 ; //0.291; //core radius in Mpc for coma
+        float beta = 0.75;
+        float eta = 0.5;
+
+        double B_field = Bo * pow(( 1 + r*r/(rcore*rcore)),(-3*beta*eta/2));// Storm et al 2013 
 
 
 
-double bloss(double E){
+        return B_field;
+
+
+};	
+
+double bloss(double E , double r){
 
 	double z = 0.0232 ; //for Coma
 	double me = 0.000511; //mass electron in Gev
-	double n = 0.001; //electron density (all these straight from Storm code, Cola has n = 1.3e-3)
+	double n = 0.001; //electron density (all these straight from Storm code  cm^-3, Cola has n = 1.3e-3)
 
 	double B = 1; //from colafrancesco estimate, should use b_field from cluster or use average, 
 
-	double bloss = 0.0254*E*E*B*B 						//bsyn
+	double bloss = 0.0254*E*E*pow(bfield_model(r) , 2) 						//bsyn
 					+ 0.25*E*E  						//bIC
 					+ 1.51*n*(0.36 + log(E/me/n) )		//bbrem
 					+ 6.13*( 1 + log(E/me/n)/0.75); 	//bcoul
@@ -57,19 +68,19 @@ double bloss(double E){
 
 
 
-double U(double Emax, double E0, int ns){
+double U(double Emax, double E0, int ns, double r){
 
 	double h = (Emax - E0)/ns;
-	double simp1 = 1/bloss( E0 + h/2);
+	double simp1 = 1/bloss( E0 + h/2, r);
 	double simp2 = 0;
 
 	for (int i = 0 ; i < ns ; ++i){
-		simp1 += 1/bloss( E0 + h * i + h/2);
-		simp2 += 1/bloss( E0 + h * i);
+		simp1 += 1/bloss( E0 + h * i + h/2 , r);
+		simp2 += 1/bloss( E0 + h * i , r);
 
 	}
 
-	double result = h/6 * (1/bloss(E0) + 1/bloss(Emax) + 4 * simp1 + 2 * simp2); // in 1/(10^-16 Gev/s)
+	double result = h/6 * (1/bloss(E0 , r) + 1/bloss(Emax , r) + 4 * simp1 + 2 * simp2); // in 1/(10^-16 Gev/s)
 
 	std::cout << result << std::endl;
 };
@@ -94,7 +105,7 @@ double distint(double z){
 	double OmegaM = 0.272 ; 		
 	double OmegaL = 0.728 ;
 
-	double distint =  clight / ( H0 * sqrt( OmegaM * pow(1 + z , 3)  + OmegaL ) ); 
+	double distint =  mpc2cm* clight / ( H0 * sqrt( OmegaM * pow(1 + z , 3)  + OmegaL ) ); 
 
 	return distint;
 
@@ -136,42 +147,11 @@ double Dist(double z){
 
 
 
-/*double Root_dv(){      // eventually should be some function of D(E), see colafranceso 
-
-
-	double root_dv = 0.01; //Mpc
-	return root_dv;
-};*/
-
-
-
-
-double bfield_model (double r) {
-
-
-        float Bo = 5.0; //microGauss
-        float rcore = 20; //core radius in kpc
-        float beta = 6;
-        float eta = 0.5;
-
-        double B_field = Bo * pow(( 1 + r*r/(rcore*rcore)),(-3*beta*eta/2));// Storm et al 2013 
-
-
-
-        return B_field;
-
-
-};	
-
-
-
-
-
 
 double DM_profile(double r){
 
     double rhos = .04 ;//DM char density in Gev /cm^3 Storm13 (Mathematica)
-    double rs = .404 ;//DM sacale radius in Mpc Storm13  (Mathematica)
+    double rs = 1.245518e24 ;//.404 ;//DM sacale radius in Mpc Storm13  (Mathematica)
 
 
     double rho = rhos / ( (r + 1e-100 )/rs * pow(1 + r/rs , 2 ));
@@ -216,15 +196,6 @@ double Integrate_Green(double rf, double r0, double ri ,int ns, double root_dv, 
 	//std::cout << result << std::endl;
 
 }
-
-
-
-
-
-
-
-
-
 
 
 
@@ -337,7 +308,7 @@ double dndeeq(double mx, double E, double r ){
 	int imNum = 10;
 	double root_dv = 0.025;
 
-	double dndeeq = 	(1 / bloss(E)) * Greens(r, root_dv, imNum) * IntDarksusy(mx, E, ns)		;
+	double dndeeq = 	(1 / bloss(E, r)) * Greens(r, root_dv, imNum) * IntDarksusy(mx, E, ns)		;
 
 	return dndeeq;
 
@@ -406,9 +377,6 @@ double psynIntegrand(double theta, double E){
 
 
 
-
-
-
 double psyn(double E, double r){
 
 	double pi = 3.14159265359;
@@ -440,7 +408,6 @@ double psyn(double E, double r){
 double jsyn(double mx, double r){
 
 
-
 	int ns = 100;
 	double me = 0.000511; //electron mass Gev
 
@@ -459,6 +426,7 @@ double jsyn(double mx, double r){
 
 	double result = h/6 * (psyn(me, r) + psyn(mx, r) + 4 * simp1 + 2 * simp2);
 	
+
 
 	double jsyn = result;
 	
@@ -501,16 +469,15 @@ double ssyn(double mx, double r){
 	double simp2 = 1e-16;
 
 	for (int i = 0 ; i < ns ; ++i){
+
+
 		simp1 += ssynIntegrand( mx, h * i + h/2 );
 		simp2 += ssynIntegrand(mx,  h * i + 1e-16);
 
 		//std::cout << mx << " :"<<"ssynIntegrand( n = " << i << ") = " << simp1 <<std::endl;
 
 	};	
-		std::cout << mx << " :" << simp1 << std::endl;
-		std::cout << mx << " :" << simp2 << std::endl;
-		std::cout << mx <<" - ssynIntegrand("<<mx<<", 0):" << ssynIntegrand(mx, 1e-16) << std::endl;
-		std::cout << mx << " - ssynIntegrand("<<mx<<", r):" << ssynIntegrand(mx, r) << std::endl;
+
 
 	double result = h/6 * (ssynIntegrand(mx, 1e-16) + ssynIntegrand(mx, r) + 4 * simp1 + 2 * simp2);
 	//std::cout << "result "<< result << std::endl;
@@ -525,28 +492,135 @@ double ssyn(double mx, double r){
 
 
 
-main(){
-	dsinit_(); //initialixe DarkSUSY
+double min_flux(double r){
+	double pi = 3.14159265359;
+	double z = 0.0232;
+	double thetaB = 25; // beam size in arcsec
+	double frms  = 1e-5; //noise per beam in Jy
 
-	double r = .415;
+	double dist_z = Dist(z) / (1+z);
 
-	
+	double thetaH = r/dist_z * 180/pi * 3600;
+
+	double min_flux = 4 * log(2) * frms * pow(thetaH/thetaB, 2); 
 
 
-	for (int ix = 1 ; ix < 101; ++ix  ){
+}
 
-			std::cout << "ssyn "<< ssyn(ix, r) << std::endl;
- 		
+
+
+
+
+double rconst(double rcm){
+
+	double pi = 3.14159265359;
+	double z = 0.0232;
+	double thetaB = 25; // beam size in arcsec
+	double dist_z = Dist(z) / (1+z);
+
+
+	double rb = .5 * dist_z *thetaB/(3600) * (pi/180); //beam size in cm
+
+	double rconst;
+
+	if( rb < rcm){
+		rconst = rcm;
+	}
+
+	else if(rb > rcm){
+		rconst = rb;
 	};
 
 
+	return rconst;
+
+}
 
 
 
 
+double Calc_sv(double mx, double r){ // potentially add ch, z here?
+
+	double pi = 3.14159265359;
+	double GeVJy=1.6e20 ;   //GeV/s/Hz/cm^2 to Jy
 
 
 
 
+	double Sin = ssyn(mx, r) * GeVJy ; 
+	double Sout = min_flux(r);
+
+
+
+	double sv = 8*pi * mx*mx * (Sout/Sin);
+
+
+	return sv ; 
+
+}
+
+
+
+
+main(){
+	//timer start
+	std::clock_t start;
+
+	double duration;
+
+	start = std::clock();
+	int a ; 
+
+	///////before algorithm
+
+	dsinit_(); //initialixe DarkSUSY
+
+	int n_mx = 100 ;//number of mx values used
+
+
+
+	double mpc2cm = 3.085678e24;
+	double r = 0.415; //ROI for cluster/object (Coma here)
+
+	double rcm = r * mpc2cm ; 
+
+	double rmax = rconst(rcm);
+
+
+	
+	std::ofstream file("coma_ch25_z0.0232.txt");	
+	for (int i = 0 ; i < n_mx +1 ; ++i){
+			// timer start
+			std::clock_t start;
+
+			double duration;
+
+			start = std::clock();
+			int a ; 
+
+			///////before algorithm
+
+
+         double mx_min = 5;
+         double mx_max = 1000;
+
+         double mx = mx_min * ( exp(    (log(mx_max) - log(mx_min))/ n_mx * i));
+
+         file << mx << "\t" << Calc_sv(mx,r) <<std::endl;
+         std::cout << "sv( " << mx << " ) = " << Calc_sv(mx, rmax) << std::endl;
+
+
+         	////////after algorithm
+			duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
+
+			std::cout << "time:  " << duration <<std::endl;
+
+	}
+
+
+	////////after algorithm
+	duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
+
+	std::cout << "Total time:  " << duration <<std::endl;
 }
 

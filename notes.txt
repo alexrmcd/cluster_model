@@ -20,6 +20,15 @@ L(~120) psyn()
 
 //////// diffusionEq.cpp ////////
 
+
+default vals 4-17-16 ---- ns = 100, Coma rh = 0.415 , rdv in kpc
+
+
+
+THink main problem is error in integration, work with gsl library? time is likey an issue, very rudimentary test show them on par but with gsl slightly longer, at 1000 steps
+
+parameters to pass, z, rh (or store with z somehow?), root_dv for testing various values. 
+
 May be good idea to take 0 -> 1e-16 for all integration, for consisiitency
 
 header file for constants
@@ -35,3 +44,7 @@ L(~76) U()
 L(~250) ssynIntegrand()
 	
 		z declared in function, best as param? 
+
+
+
+

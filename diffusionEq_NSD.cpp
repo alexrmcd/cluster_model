@@ -256,7 +256,7 @@ void integrandTest(double root_dv, double r){
 
 void runGreens(double r, int ns){ //runs through values of root_dv
 	
-	double root_dv = 0.015;
+	double root_dv = 0.025;
 	int n = 100;
 
 	double h = root_dv/n;
@@ -274,7 +274,7 @@ void runGreens(double r, int ns){ //runs through values of root_dv
 double IntDarksusy(double mx, double E, int ns){
 
 	
-	int ch = 17;
+	int ch = 25;
 	int yieldk = 151;
 	int istat;
 
@@ -309,8 +309,8 @@ double dndeeq(double mx, double E, double r ){
 	double mpc2cm = 3.085678e24;
 	double root_dv = 0.025*mpc2cm;
 
-	double dndeeq = 	(1 / bloss(E, r)) * Greens(r, root_dv, imNum) * IntDarksusy(mx, E, ns)		;
-	//double dndeeq = 	(1 / bloss(E, r))  * IntDarksusy(mx, E, ns)		;
+	//double dndeeq = 	(1 / bloss(E, r)) * Greens(r, root_dv, imNum) * IntDarksusy(mx, E, ns)		;
+	double dndeeq = 	(1 / bloss(E, r))  * IntDarksusy(mx, E, ns)		;
 
 	return dndeeq;
 
@@ -506,7 +506,10 @@ double min_flux(double r){
 
 	double min_flux = 4 * log(2) * frms * pow(thetaH/thetaB, 2); 
 
+
 	return min_flux;
+
+
 }
 
 
@@ -551,7 +554,7 @@ double Calc_sv(double mx, double r){ // potentially add ch, z here?
 
 	double Sin = ssyn(mx, r) * GeVJy ; 
 	double Sout = min_flux(r);
-	//std::cout << " Sout = " << Sout << "  Sin = " << Sin <<std::endl;
+
 
 
 	double sv = 8*pi * mx*mx * (Sout/Sin);
@@ -580,7 +583,7 @@ main(){
 	int n_mx = 100 ;//number of mx values used
 
 
-	double pi = 3.14159265359;
+
 	double mpc2cm = 3.085678e24;
 	double r = 0.415; //ROI for cluster/object (Coma here)
 
@@ -590,7 +593,7 @@ main(){
 
 
 	
-	std::ofstream file("coma_ch17_rdv25.txt");	
+	std::ofstream file("coma_ch25_rdv25_NSD.txt");	
 	for (int i = 0 ; i < n_mx +1 ; ++i){
 			// timer start
 			std::clock_t start;

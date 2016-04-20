@@ -21,7 +21,62 @@ L(~120) psyn()
 //////// diffusionEq.cpp ////////
 
 
+for ds, pass mx as *(double*) params
+
+still need to make values accessible to other functions, get(val)?
+
+make integration for other functions, 
+	gslInt_dist(), 
+	gslInt_ssyn()
+	gslInt_greens()
+	gslInt_jsyn()
+	gslInt_psyn()
+
+
+
+uster
+set_dsparams(mx, ch, yieldk, istat, etc...)
+
+
+
+integrate(double E, void * params ){
+	set_dsparams(E)
+}
+
+
+
+DS CHannel 13 only working for mx >= 75.4445
+
+
+
+
+
+
 default vals 4-17-16 ---- ns = 100, Coma rh = 0.415 , rdv in kpc
+
+define a funtion : save a few instances of redefining dist_z, bloss, psynintegrand  still use z
+
+double 	func dist_z(){
+			double z = !!!!;
+			double dist_z  = Dist()/(1+z);
+			return dist_z;
+		}
+
+
+Greens(r, rdv, ns) ---- dont need rdv as a parameter
+
+
+ns-----probably be removed a s a parameter altogether using GSL
+
+
+look into pulling rho(r) out of greens, using it only in ssynintegrand ?? might be more work than its worth though....
+
+
+
+
+
+
+
 
 
 
@@ -48,3 +103,7 @@ L(~250) ssynIntegrand()
 
 
 
+Completed:
+
+4-20-16
+	MAIN OBJ --- figure out way to pass one parameter (E) into dshayield. ie, function that takes in all params, (mwimp, ch, yieldk, etc), wrap it in function that only takes E, 

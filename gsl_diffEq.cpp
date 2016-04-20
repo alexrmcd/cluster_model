@@ -1,17 +1,18 @@
-// 4-13-16
+// 4-19-16
 //
-// Diffusion Equation with spatial diffusion, diffusion const independent of spatial coordinate -> D(E).
+// Diffusion Equation with spatial diffusion, diffusion const independent of spatial coordinate -> D(E). Uses GSL and Darksusy
 //
 #include <iostream>
 #include <fstream>
 #include <math.h>
 #include <cmath>
 #include <ctime>
+#include <gsl/gsl_integration.h>
 
 
 /* to compile and run, use command 
 
-g++ -o diffusionEq diffusionEq.cpp  -I/home/alex/research/darksusy-5.1.2/include -L/home/alex/research/darksusy-5.1.2/lib -ldarksusy -lFH -lHB -lgfortran
+g++ -o gsl_diffEq gsl_diffEq.cpp  -I/home/alex/research/darksusy-5.1.2/include -L/home/alex/research/darksusy-5.1.2/lib -lgsl -lgslcblas -ldarksusy -lFH -lHB -lgfortran
 */
 
 //////////////////////////// routines for calling fortran/darksusy stuff /////////////////////////
@@ -28,6 +29,18 @@ double dshayield_(double *mwimp, double *emuthr,int *ch,  int *yieldk, int *ista
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
+class Cluster{
+	
+	public:
+
+	double z;
+	Cluster() : z(0) {
+		std::cout << "creating cluster... " << std::endl;
+	}
+
+
+};
+
 
 double bfield_model (double r) {
 
@@ -46,9 +59,11 @@ double bfield_model (double r) {
 
 };	
 
+
+
 double bloss(double E , double r){
 
-	double z = 0.0232 ; //for Coma
+	//double z = 0.0232 ; //for Coma
 	double me = 0.000511; //mass electron in Gev
 	double n = 0.001; //electron density (all these straight from Storm code  cm^-3, Cola has n = 1.3e-3)
 
@@ -464,6 +479,8 @@ double ssynIntegrand( double mx, double r){
 
 
 
+
+
 double ssyn(double mx, double r){
 
 	int ns = 100;
@@ -567,7 +584,6 @@ double Calc_sv(double mx, double r){ // potentially add ch, z here?
 
 
 
-
 main(){
 	//timer start
 	std::clock_t start;
@@ -578,7 +594,8 @@ main(){
 	int a ; 
 
 	///////before algorithm
-
+	Cluster c;
+	c.z = 0.0232;
 	dsinit_(); //initialixe DarkSUSY
 
 	int n_mx = 100 ;//number of mx values used
@@ -592,8 +609,10 @@ main(){
 
 	double rmax = rconst(rcm);
 
+	std::cout << c.z <<std::endl;
 
-	
+
+	/*
 	std::ofstream file("coma_ch17_rdv25Opt.txt");	
 	for (int i = 0 ; i < n_mx +1 ; ++i){
 			// timer start
@@ -611,7 +630,7 @@ main(){
 
          double mx = mx_min * ( exp(    (log(mx_max) - log(mx_min))/ n_mx * i));
 
-         file << mx << "\t" << Calc_sv(mx,rmax) <<std::endl;
+         //file << mx << "\t" << Calc_sv(mx,rmax) <<std::endl;
          std::cout << "sv( " << mx << " ) = " << Calc_sv(mx, rmax) << std::endl;
 
 
@@ -620,7 +639,7 @@ main(){
 
 			std::cout << "time:  " << duration <<std::endl;
 
-	}
+	}*/
 
 
 

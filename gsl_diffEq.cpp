@@ -63,11 +63,11 @@ double bfield_model (double r) {
 
 double bloss(double E , double r){
 
-	//double z = 0.0232 ; //for Coma
+	double z = 0.0232 ; //for Coma
 	double me = 0.000511; //mass electron in Gev
 	double n = 0.001; //electron density (all these straight from Storm code  cm^-3, Cola has n = 1.3e-3)
 
-	double B = 1; //from colafrancesco estimate, should use b_field from cluster or use average, 
+	double B = 1; //from colafrancesco estimate, should use b_field from cluster or use average, vely, do you mean "he's got more delegates" - because that's true. I really don't think Cruz is a quarter the General candidate that Kasich is though.
 
 	double bloss = 0.0254*E*E*pow(bfield_model(r) , 2) 						//bsyn
 					+ 0.25 * pow(1+z, 4 )*E*E  						//bIC
@@ -255,41 +255,12 @@ double Greens (double r, double root_dv, int ns) {
 };
 
 
-void integrandTest(double root_dv, double r){
-
-	for (int ix = -100; ix < 100; ++ix){
-
-
-		double dx = .01;
-
-		std::cout << "Integrand (x = " << ix*dx << "): "<< GreensIntegrand(0.1, ix*dx ,  root_dv, r) << std::endl;
-
-	}
-
-	
-}
-
-void runGreens(double r, int ns){ //runs through values of root_dv
-	
-	double root_dv = 0.015;
-	int n = 100;
-
-	double h = root_dv/n;
-
-	for (int ix = 0 ; ix < n + 1; ++ix  ){
-		//Greens(0.05, h*ix, ns )
-
-		std::cout << h*ix << ":  " << Greens(r, h*ix, ns ) << std::endl;
-	};
-	
-}
-
 
 
 double IntDarksusy(double mx, double E, int ns){
 
 	
-	int ch = 17;
+	int ch = 25;
 	int yieldk = 151;
 	int istat;
 
@@ -316,6 +287,51 @@ double IntDarksusy(double mx, double E, int ns){
 
 
 
+double ds (double Ep, void * params){
+
+   int ch = 25;
+   int yieldk = 151;
+   int istat;
+   double mx = *(double *)params; 
+   
+   double ds = dshayield_(&mx, &Ep, &ch, &yieldk, &istat);
+   //std::cout << ds << std::endl;
+
+   return ds;
+}
+
+
+
+
+
+double gslInt_ds( double Ep, double mx){
+     gsl_integration_workspace * w 
+    = gsl_integration_workspace_alloc (1000000);
+
+  double result, error;
+  double expected = -4.0;
+  
+
+  gsl_function F;
+  F.function = &ds;
+  F.params = &mx;
+
+  gsl_integration_qags (&F, Ep, mx, 0, 1e-3, 1000000, // make mx the end point
+                        w, &result, &error); 
+
+ /* printf ("result          = % .18f\n", result);
+
+  printf ("estimated error = % .18f\n", error);
+
+  printf ("intervals       = %zu\n", w->size);*/
+
+  gsl_integration_workspace_free (w);
+  return result;
+
+}
+
+
+
 
 
 double dndeeq(double mx, double E, double r ){
@@ -324,31 +340,12 @@ double dndeeq(double mx, double E, double r ){
 	double mpc2cm = 3.085678e24;
 	double root_dv = 0.025*mpc2cm;
 
-	double dndeeq = 	(1 / bloss(E, r))  * IntDarksusy(mx, E, ns)		;
+	double dndeeq = 	(1 / bloss(E, r))  * gslInt_ds(E, mx)		;
 	//double dndeeq = 	(1 / bloss(E, r))  * IntDarksusy(mx, E, ns)		;
 
 	return dndeeq;
 
 }
-
-
-
-double rundndeeq(double mx, double E, double r ){
-	//std::ofstream rundndeeq("dndeeq.txt");
-	double n = 100;
-	double h = (mx-E)/n;
-
-	for (int ix = 0 ; ix < n + 1; ++ix  ){
-		//Greens(0.05, h*ix, ns )
-
-		std::cout << h*ix << ":  " << dndeeq(mx, h*ix, r ) << std::endl;
-
-	};
-	//rundndeeq.close();
-
-
-}
-
 
 
 
@@ -456,13 +453,16 @@ double jsyn(double mx, double r){
 
 
 
-double ssynIntegrand( double mx, double r){
+/*   ///// Simpsons method
+double ssynIntegrand( double r, double mx ){
 	double pi = 3.14159265359;
 	double z = 0.0232;
 	double mpc2cm = 3.085678e24;
 	double root_dv = 0.025*mpc2cm;
 	int ns = 100;
 	int imNum = 10;
+
+	
 
 	double dist_z = Dist(z) / (1+z);
 
@@ -476,7 +476,6 @@ double ssynIntegrand( double mx, double r){
 
 	return ssynIntegrand;
 }
-
 
 
 
@@ -510,9 +509,58 @@ double ssyn(double mx, double r){
 	return ssyn;
 
 
+}*/
+
+double dssyn( double r, void * params ){
+	double pi = 3.14159265359;
+	double z = 0.0232;
+	double mpc2cm = 3.085678e24;
+	double root_dv = 0.025*mpc2cm;
+	int ns = 100;
+	int imNum = 10;
+
+	double mx = *(double *)params;
+
+	double dist_z = Dist(z) / (1+z);
+
+
+	//jsyn(r) << std::endl;
+	double ssynIntegrand = 4 *pi /pow(dist_z , 2) * pow(r,2) *Greens(r, root_dv, imNum) *  pow(DM_profile(r) , 2)*jsyn(mx, r);	
+
+
+	
+
+
+	return ssynIntegrand;
 }
 
 
+double gslInt_ssyn( double r , double mx){
+	  gsl_integration_workspace * w 
+    = gsl_integration_workspace_alloc (1000000);
+
+  double result, error;
+  double me = 0.511e-3;
+
+
+  gsl_function F;
+  F.function = &dssyn;
+  F.params = &mx;
+
+  gsl_integration_qags (&F, 0, r, 0, 1e-3, 1000000,
+                        w, &result, &error); 
+
+  /*printf ("result          = % .18f\n", result);
+
+  printf ("estimated error = % .18f\n", error);
+
+  printf ("intervals       = %zu\n", w->size);
+
+  gsl_integration_workspace_free (w);*/
+
+  return result;
+
+}
 
 
 double min_flux(double r){
@@ -570,7 +618,7 @@ double Calc_sv(double mx, double r){ // potentially add ch, z here?
 
 
 
-	double Sin = ssyn(mx, r) * GeVJy ; 
+	double Sin = gslInt_ssyn(r, mx) * GeVJy ; 
 	double Sout = min_flux(r);
 	//std::cout << " Sout = " << Sout << "  Sin = " << Sin <<std::endl;
 
@@ -608,12 +656,13 @@ main(){
 	double rcm = r * mpc2cm ; 
 
 	double rmax = rconst(rcm);
+	double mx = 1000;
 
-	std::cout << c.z <<std::endl;
+	std::cout << dndeeq(mx, 5 , 0.415*mpc2cm) <<std::endl;
 
 
-	/*
-	std::ofstream file("coma_ch17_rdv25Opt.txt");	
+	
+	std::ofstream file("coma_ch25_rdv25GSL_eps3.txt");	
 	for (int i = 0 ; i < n_mx +1 ; ++i){
 			// timer start
 			std::clock_t start;
@@ -630,16 +679,16 @@ main(){
 
          double mx = mx_min * ( exp(    (log(mx_max) - log(mx_min))/ n_mx * i));
 
-         //file << mx << "\t" << Calc_sv(mx,rmax) <<std::endl;
-         std::cout << "sv( " << mx << " ) = " << Calc_sv(mx, rmax) << std::endl;
+         file << mx << "\t" << Calc_sv(mx,rmax) <<std::endl;
+         //std::cout << "sv( " << mx << " ) = " << Calc_sv(mx, rmax) << std::endl;
 
 
          	////////after algorithm
 			duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
 
-			std::cout << "time:  " << duration <<std::endl;
+			std::cout << " time = " << i << " " << duration <<std::endl;
 
-	}*/
+	}
 
 
 

@@ -45,7 +45,7 @@ int Set_ch(){
 
 double ds (double Ep, void * params){
 
-   int ch = 13;
+   int ch = 17;
    int yieldk = 151;
    int istat;
    double mx = *(double *)params; 

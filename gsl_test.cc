@@ -8,6 +8,7 @@
 #include <math.h>
 #include <gsl/gsl_integration.h>
 #include <ctime>
+#include <vector>
 
 double b_sub(double x, double y, double z){
 
@@ -33,20 +34,6 @@ double setYZ(char get, double y, double z){
 	return result;
 
 }
-
-double b(double x, void * params){
-
-	double y =  setYZ('y', 1, 1);
-	double z =  setYZ('z', 1, 1);
-	double beta = *(double *)params;
-	//std::cout << y << "   "<< z << std::endl;
-
-	double val = x*x + z +y *5 - 100 *beta;
-	return val;
-
-
-}
-
 
 
 
@@ -88,12 +75,6 @@ double NIntegrate(double rf, double r0, int ns){
 
 }
 
-
-
-
-
-
-
 double f (double x, void * params) {
   double alpha = *(double *) params;
   double f = log(alpha*x) / sqrt(x);
@@ -102,52 +83,33 @@ double f (double x, void * params) {
 
 
 
+double b(double x, void * params){
+
+	double y =  setYZ('y', 1, 1);
+	double z =  setYZ('z', 1, 1);
+	std::vector<double> beta = *(std::vector<double> *)params;
+	//std::cout << y << "   "<< z << std::endl;
+
+	double val = x*x + z +y *5 - 100 *beta[0];
+	return val;
+
+
+}
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-void gsl( double i, double f){
+void gsl( double i, double f, double E, double r){
 	  gsl_integration_workspace * w 
     = gsl_integration_workspace_alloc (10000);
 
   double result, error;
-  double expected = -4.0;
-  double beta = 0.5;
+
+  std::vector<double> beta (2);
+
+
+  beta[0] = E;
+  beta[1] = r;
 
   gsl_function F;
   F.function = &b;
@@ -157,9 +119,9 @@ void gsl( double i, double f){
                         w, &result, &error); 
 
   printf ("result          = % .18f\n", result);
-  printf ("exact result    = % .18f\n", expected);
+
   printf ("estimated error = % .18f\n", error);
-  printf ("actual error    = % .18f\n", result - expected);
+
   printf ("intervals       = %zu\n", w->size);
 
   gsl_integration_workspace_free (w);
@@ -194,7 +156,7 @@ main (void)
 
 	///// start gsl
 
-	gsl(0, 1);
+	gsl(0, 1, 0.5 , 0.2);
 
 
 

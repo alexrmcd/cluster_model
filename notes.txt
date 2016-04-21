@@ -30,11 +30,11 @@ make integration for other functions,
 	gslInt_ssyn()
 	gslInt_greens()
 	gslInt_jsyn()
-	gslInt_psyn()
+	gslInt_psyn() ---- this is a pain, having 3 parameters, perhaps best left with simpsons?? 
 
 
 
-uster
+cluster
 set_dsparams(mx, ch, yieldk, istat, etc...)
 
 
@@ -45,7 +45,7 @@ integrate(double E, void * params ){
 
 
 
-DS CHannel 13 only working for mx >= 75.4445
+DS CHannel 13 only working for mx >= 75.4445 NOTE something goes wrong here for several channels(13,17?) so I dropped the epsrel down to 1e-3, seems to work, matches Emmaf
 
 
 

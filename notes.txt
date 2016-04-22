@@ -21,6 +21,9 @@ L(~120) psyn()
 //////// diffusionEq.cpp ////////
 
 
+bring DM_profile const into cluster def??
+
+
 for ds, pass mx as *(double*) params
 
 still need to make values accessible to other functions, get(val)?

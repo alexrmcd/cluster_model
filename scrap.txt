@@ -1,0 +1,32 @@
+scrap.txt
+
+
+//NOT IN USE
+double U(double Emax, double E0, int ns, double r){
+
+	double h = (Emax - E0)/ns;
+	double simp1 = 1/bloss( E0 + h/2, r);
+	double simp2 = 0;
+
+	for (int i = 0 ; i < ns ; ++i){
+		simp1 += 1/bloss( E0 + h * i + h/2 , r);
+		simp2 += 1/bloss( E0 + h * i , r);
+
+	}
+
+	double result = h/6 * (1/bloss(E0 , r) + 1/bloss(Emax , r) + 4 * simp1 + 2 * simp2); // in 1/(10^-16 Gev/s)
+
+	std::cout << result << std::endl;
+};
+
+
+//NOT IN USE
+double D(double E){
+
+	double D0 = 3.1; // 10^28 cm^2/s
+	double db = 20; // no reason to be int, estimate from colafranceso for Coma
+	double Bmu = 1; // in mG, estimate from colafrancesco, same thing as B in bloss
+
+	double D = D0 * pow(db, 2/3)/pow(Bmu,1/3) * pow(E,1/3);
+};
+

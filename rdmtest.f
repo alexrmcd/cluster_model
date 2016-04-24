@@ -129,7 +129,7 @@ c-----energy loss function: IC,synch,coulomb,brem losses
 c-----expression from Colafrancesco+2006
       real*8 function bloss(ener)
       real*8 ener
-      bloss=(bic0*(1+z)**4+bmu**2*bsyn0)*ener**2
+      bloss= (bic0*(1+z)**4+bmu**2*bsyn0)*ener**2
      &     +nele*6.13d0*(1.d0+dlog((ener/me)/nele)/75.d0)
      &     +nele*1.51d0*(dlog((ener/me))+0.36d0)*ener
       
@@ -163,7 +163,7 @@ c-----------------------------------------------------------------------
 c-----synchrotron emission spectral function (from Colafrancesco+2006)
       real*8 function fff(x)
       real*8 x
-      fff=1.25d0*x**(1.d0/3.d0)*dexp(-x)*(648.d0+x**2)**(1.d0/12.d0)
+      fff= 1.25d0*x**(1.d0/3.d0)*dexp(-x)*(648.d0+x**2)**(1.d0/12.d0)
       return
       end function fff
 c-----------------------------------------------------------------------
@@ -184,7 +184,7 @@ c-----function definition
      &     epsabs,epsrel,limit,
      &     result,abserr,neval,ier,alist,blist,rlist,elist,iord,last)
       
-      psyn=result*2*dndeeq(ener) !factor of 2 for positrons + electrons
+      psyn=result*2*dndeeq(ener) !factor of 2 for positrons + electrons  tempremoved
       
       contains
 c-----synchrotron single electron power, integrand
@@ -194,7 +194,7 @@ c-----synchrotron single electron power, integrand
       real*8 :: x0=62.1881      !dimensionless constant
       nu_em=(1+z)*nu            !emitted frequency = (1+z)(observed frequency)
       xxx=x0*nu_em/(bmu*ener**2)
-      psynintegrand=psyn0*bmu*0.5*(dsin(theta))**2
+      psynintegrand= psyn0*bmu*0.5*(dsin(theta))**2
      &     *fff(xxx/dsin(theta))
       end function psynintegrand
       
@@ -225,7 +225,7 @@ c-----integrand for los integral (DM density^2 times emissivity)
       real*8 function ssynintegrand(r)
       real*8 r,dist_z
       dist_z=dist(z)/(1+z)      !angular diameter distance
-      ssynintegrand=4*pi/dist_z**2*r**2*rhox(r)**2*jsyn(r) !approximation; ok for small theta=radius/distance
+      ssynintegrand=4*pi/dist_z**2*r**2*rhox(r)**2*jsyn(r) !approximation; ok for small theta=radius/distance  
       return
       end function ssynintegrand
 c-----------------------------------------------------------------------

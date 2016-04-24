@@ -1,6 +1,8 @@
 /////// 		classTest.cpp		4-21-16 ////////
 
 #include <iostream>
+#include <string>
+#include <sstream>
 
 class Hotel{
 public:
@@ -47,8 +49,12 @@ main(){
 
 	california.newguests(30);
 
+	std::string channel = "bb";
 
-
+	std::ostringstream makefilename;
+	makefilename << channel ;
+	std::string var = makefilename.str();
+	std::cout << var << std::endl;
 
 	std::cout << california.getguests() << std::endl;
 

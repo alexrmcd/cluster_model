@@ -33,6 +33,11 @@ dshayield : dshayield.f $(LIB)/libdarksusy.a
          -ldarksusy -lFH -lHB
 
 
+rdmtest : rdmtest.f $(LIB)/libdarksusy.a
+	$(FF) $(FOPT) -I$(INC) -L$(LIB) -o rdmtest rdmtest.f \
+         -ldarksusy -lFH -lHB
+
+
 
 all: RadioDMcalc constants particle cluster_params astro synchrotron
 

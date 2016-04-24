@@ -4,12 +4,15 @@
 //
 #include <iostream>
 #include <fstream>
+#include <sstream>
+#include <string>
 #include <math.h>
 #include <cmath>
 #include <ctime>
 #include <vector>
 #include <gsl/gsl_integration.h>
 
+#include <iomanip> //for ts
 //should go in a constants header
 
 const 
@@ -48,21 +51,23 @@ double dshayield_(double *mwimp, double *emuthr, int *ch,  int *yieldk, int *ist
 class Cluster{  
 	
 	public:
+	std::string name;
 	double z ;
 	double rh; //halo radius
 	int ch ;
 	double B0 ; 				//microGauss
 	double rcore ; 		//0.291; //core radius in Mpc for coma
+	double root_dv;
 
-	Cluster() :	
-				z(0.0232), 						//redshift
-				rh(0.415),						//halo radius Mpc
-				ch(19), 						//darksusy channel
-				B0(4.7), rcore(0.291*mpc2cm)		//Bfield Params
+	Cluster() :	name(""),
+				z(0), 						//redshift
+				rh(0),						//halo radius Mpc
+				ch(0), 						//darksusy channel
+				B0(0), rcore(0)	,			//Bfield Params
+				root_dv(0.035)					//DIffusion parameter, not really a cluster thing but easy access is good
 
 	{	//everything labelled or Coma, sgould work in user options
 		std::cout << "creating cluster... " << std::endl;
-		std::cout <<"we have z = : " << z << ", and are working on channel: " << ch << std::endl;
 	}
 
 };
@@ -71,12 +76,12 @@ Cluster c;
 
 double bfield_model (double r) {
 
-        double beta = 0.75;
-        double eta = 0.5;
+	double beta = 0.75;
+	double eta = 0.5;
 
-        double B_field = c.B0 * pow(( 1 + r*r/(c.rcore*c.rcore)),(-3*beta*eta/2));		// Storm et al 2013 
+	double B_field = c.B0 * pow(( 1 + r*r/(c.rcore*c.rcore)),(-1.5*beta*eta));		// Storm et al 2013 
 
-        return B_field;
+	return B_field;
 
 };	
 
@@ -84,10 +89,10 @@ double bfield_model (double r) {
 
 double bloss(double E , double r){
 
-	double bloss = 0.0254*E*E*pow(bfield_model(r) , 2) 					//bsyn
-					+ 0.25 * pow(1 + c.z, 4 )*E*E  						//bIC
-					+ 1.51*n*(0.36 + log(E/me/n) )					//bbrem
-					+ 6.13*( 1 + log(E/me/n)/0.75); 					//bcoul
+	double bloss = 0.0253*pow(bfield_model(r), 2)*E*E 					//bsyn bfield_model(r)
+					+ 0.265 * pow(1 + c.z, 4 )*E*E  					//bIC
+					+ 1.51*n*(0.36 + log(E/me/n) )			//+ 1.51*n*(0.36 + log(E/me) )*E						//bbrem Note this is most likely incorrect, no factor of E, and should be E/me/nin log
+					+ 6.13*n*( 1 + log(E/me/n)/75); 					//bcoul
 
 	bloss = bloss *1e-16;	
 
@@ -99,7 +104,7 @@ double bloss(double E , double r){
 
 double ddist(double z  , void * params){
 
-	double distint =  mpc2cm* clight / ( H0 * sqrt( OmegaM * pow(1 + z , 3)  + OmegaL ) ); 
+	double distint =  mpc2cm * clight / ( H0 * sqrt( OmegaM * pow(1 + z , 3)  + OmegaL ) ); 
 
 	return distint;
 
@@ -110,14 +115,14 @@ double ddist(double z  , void * params){
 double Dist(){ 
 
 	gsl_integration_workspace * w 
-		= gsl_integration_workspace_alloc (10000);
+		= gsl_integration_workspace_alloc (5000);
 
 	double result, error;
 
 	gsl_function F;
 	F.function = &ddist;
 
-	gsl_integration_qags (&F, 0, c.z, 0, 1e-4, 10000,
+	gsl_integration_qags (&F, 0, c.z, 0, 1e-3, 5000,
 	                w, &result, &error); 
 
 	gsl_integration_workspace_free (w);
@@ -131,10 +136,11 @@ double Dist(){
 double rconst(double rcm){
 
 	double thetaB = 25; // beam size in arcsec
-	double dist_z = Dist() / (1+c.z);
+	double dist_z = Dist() / (1 + c.z);
 
 
-	double rb = .5 * dist_z *thetaB/(3600) * (pi/180); //beam size in cm
+	double rb = 0.5 * dist_z *thetaB/(3600) * (pi/180); //beam size in cm
+
 
 	double rconst;
 
@@ -145,7 +151,7 @@ double rconst(double rcm){
 	else if(rb > rcm){
 		rconst = rb;
 	};
-
+	
 	return rconst;
 
 }
@@ -154,11 +160,10 @@ double rconst(double rcm){
 double DM_profile(double r){
 
     double rhos = 0.039974 ;//DM char density in Gev /cm^3 Storm13 (Mathematica)
-    double rs = 0.404*mpc2cm;  //DM sacale radius in Mpc Storm13  (Mathematica)
+    double rs = 0.404*mpc2cm;  //DM scale radius in Mpc Storm13  (Mathematica)
 
 
-    double rho = rhos / ( (r + 1e-100 )/rs * pow(1 + r/rs , 2 ));
-
+    double rho = rhos / ( r/rs * pow(1 + r/rs , 2 )); //x? + 1e-100
 
     return rho;
 
@@ -170,7 +175,7 @@ double dGreens(double rp, void * params ){
 
 	std::vector<double> greenParam = *(std::vector<double> *)params;
 
-	double root_dv = 0.025*mpc2cm; // 
+	double root_dv = c.root_dv*mpc2cm; // 
 	double dGreens = pow(root_dv , -1) * rp/greenParam[0] * (exp( - pow( (rp-greenParam[0])/(2*root_dv) , 2)) 
 		- exp( - pow( ( rp + greenParam[0])/(2*root_dv) , 2)) ) * pow( DM_profile(rp),2)/pow( DM_profile(greenParam[1]),2);
 
@@ -184,7 +189,7 @@ double gslInt_Greens(double ri , double r, double rh){
 
 
 	gsl_integration_workspace * w 
-		= gsl_integration_workspace_alloc (10000);
+		= gsl_integration_workspace_alloc (5000);
 
 	double result, error;
 
@@ -198,7 +203,7 @@ double gslInt_Greens(double ri , double r, double rh){
 	F.function = &dGreens;
 	F.params = &greenParam;
 
-	gsl_integration_qags (&F, 0, rh, 0, 1e-4, 10000,
+	gsl_integration_qags (&F, 1e-16, rh, 0, 1e-3, 5000, //x?
 	                w, &result, &error); 
 
 	gsl_integration_workspace_free (w);
@@ -228,7 +233,8 @@ double Greens (double r) {  //called by ddsyn
 
 	}
 
-	double Greens = pow(4*pi , -1/2)*Gsum ;
+	double Greens = pow(4*pi , -1.0/2.0)*Gsum ;
+	//std::cout << Greens << std::endl;
 
 	return Greens;
 
@@ -244,14 +250,16 @@ double ddarksusy (double Ep, void * params){
    
    double ds = dshayield_(&mx, &Ep, &c.ch, &yieldk, &istat);
 
+
    return ds;
 }
 
 
 
 double gslInt_ds( double Ep, double mx){
+		
 	gsl_integration_workspace * w 
-		= gsl_integration_workspace_alloc (1000);
+		= gsl_integration_workspace_alloc (5000);
 
 	double result, error;
 
@@ -259,7 +267,7 @@ double gslInt_ds( double Ep, double mx){
 	F.function = &ddarksusy;
 	F.params = &mx;
 
-	gsl_integration_qags (&F, Ep, mx, 0, 1e-3, 1000, 
+	gsl_integration_qags (&F, Ep, mx, 0, 1e-3, 5000, 
 	                    w, &result, &error); 
 
 	gsl_integration_workspace_free (w);
@@ -271,7 +279,7 @@ double gslInt_ds( double Ep, double mx){
 
 double dndeeq(double mx, double E, double r ){
 
-	double dndeeq = 	(1 / bloss(E, r))  * gslInt_ds(E, mx)		;
+	double dndeeq = 	(1 / bloss(E,r))  * gslInt_ds(E, mx);		; 
 
 	return dndeeq;
 
@@ -281,34 +289,36 @@ double dndeeq(double mx, double E, double r ){
 //SYnchrotron emmission spectral function form Cola2006.
 double fff(double x){
 
-	double fff = 1.25 * pow( x , 1/3) * exp( -x ) * pow((648 + x*x) , 1/12);
-
+	double fff = 1.25 * pow( x , 1.0/3.0) * exp( -x )* pow((648 + x*x) , 1.0/12.0);
 
 	return fff;
 }
 
 
-double psynIntegrand(double theta, void * params ){
+double dpsyn(double theta, void * params ){
 
 	double nu = 1.4;	//Ghz
 
-	double psyn0 = 1.463232e-25 ; // Gev/s/Hz
+	double psyn0 = 1.46323e-25 ; // Gev/s/Hz
 	double x0 = 62.1881 ;			// dimensionless constant
 	double nu_em = ( 1 + c.z )* nu; // (observing freq)*(1+z)
 
 	std::vector<double> beta = *(std::vector<double> *)params;
 
-	double x = x0 *nu_em / (bfield_model(beta[1]) * beta[0]) ;
-	double psynIntegrand = psyn0 * bfield_model(beta[1]) * 0.5 * pow( sin(theta) , 2) * fff( x  / std::abs(sin(theta)) ); 
-	// fff(x) doesnt like negative arguments, sin(pi) ~ -2e-13, take abs for now(requires cmath)
-
-	return psynIntegrand;
+	double x = x0 *nu_em / ( bfield_model( beta[1] ) * pow( beta[0] , 2) );
+	
+	double dpsyn = psyn0 * bfield_model(beta[1]) * 0.5 * pow(  sin(theta) , 2)* fff( x  /sin(theta) ); 
+	
+	// fff(x) doesnt like negative arguments, sin(pi) ~ -2e-13, take abs for now(requires cmath) 4-22-16 removed abs by using less precisepi value	
+	
+	return dpsyn;
 
 }
 
 double gslInt_psyn(  double E, double r){
+		
 	gsl_integration_workspace * w 
-		= gsl_integration_workspace_alloc (10000);
+		= gsl_integration_workspace_alloc (5000);
 
 	double result, error;
 
@@ -319,13 +329,15 @@ double gslInt_psyn(  double E, double r){
 
 
 	gsl_function F;
-	F.function = &psynIntegrand;
+	F.function = &dpsyn;
 	F.params = &beta;
 
-	gsl_integration_qags (&F, 0, pi, 0, 1e-7, 10000,
+	gsl_integration_qags (&F, 1e-16, pi, 0, 1e-3, 5000, //x?
 	                    w, &result, &error); 
 
 	gsl_integration_workspace_free (w);
+
+	//std::cout << "psyn(5): " << result <<std::endl; 
 
 	return result;
 
@@ -334,19 +346,20 @@ double gslInt_psyn(  double E, double r){
 
 double djsyn(double E , void * params){
 
-
 	std::vector<double> alpha = *(std::vector<double> *)params;
 
 
-	double djsyn = 2* gslInt_psyn(E, alpha[1]) * dndeeq(alpha[0], E , alpha[1]);
+	double djsyn = 2* gslInt_psyn(E, alpha[1])* dndeeq(alpha[0], E , alpha[1]);
 
+   	//std::cout << "E: " << E <<std::endl;
 	return djsyn;
 }
 
 
 double gslInt_jsyn(double mx, double r){
+		//std::cout << "jsyn " <<std::endl;
 	gsl_integration_workspace * w 
-		= gsl_integration_workspace_alloc (10000);
+		= gsl_integration_workspace_alloc (5000);
 
 	double result, error;
 
@@ -360,13 +373,15 @@ double gslInt_jsyn(double mx, double r){
 	F.function = &djsyn;
 	F.params = &alpha;
 
-	gsl_integration_qags (&F, me, mx, 0, 1e-3, 10000,
+	gsl_integration_qags (&F, me, mx, 0, 1e-3, 5000,
 	                    w, &result, &error); 
 
 
 	gsl_integration_workspace_free (w);
 
 	return result;
+
+	//std::cout << "gslInt_jsyn: " << std::setprecision(19) << result << std::endl;
 }
 
 
@@ -377,14 +392,15 @@ double dssyn( double r, void * params ){
 	double dist_z = Dist() / (1+c.z);
 
 	double ssynIntegrand = 4 *pi /pow(dist_z , 2) * pow(r,2) *Greens(r) *  pow(DM_profile(r) , 2)*gslInt_jsyn(mx, r);	
-
+	//double ssynIntegrand = 4 *pi /pow(dist_z , 2) * r * r * pow(DM_profile(r) , 2)*gslInt_jsyn(mx, r);	
 	return ssynIntegrand;
 }
 
 
 double gslInt_ssyn( double r , double mx){
+		//std::cout <<"ssyn" <<std::endl;
 	gsl_integration_workspace * w 
-		= gsl_integration_workspace_alloc (1000000);
+		= gsl_integration_workspace_alloc (5000);
 
 	double result, error;
 
@@ -394,7 +410,7 @@ double gslInt_ssyn( double r , double mx){
 	F.function = &dssyn;
 	F.params = &mx;
 
-	gsl_integration_qags (&F, 0, r, 0, 1e-3, 1000000,
+	gsl_integration_qags (&F, 1e-16, r, 0, 1e-3, 5000,
 	                w, &result, &error); 
 
 	return result;
@@ -404,14 +420,14 @@ double gslInt_ssyn( double r , double mx){
 
 double min_flux(double r){
 
-	double thetaB = 25; // beam size in arcsec
+	double thetaB = 25.0; // beam size in arcsec
 	double frms  = 1e-5; //noise per beam in Jy
 
-	double dist_z = Dist() / (1 + c.z);
+	double dist_z = Dist() / (1.0 + c.z);
 
-	double thetaH = r/dist_z * 180/pi * 3600;
+	double thetaH = r/dist_z * 180.0/pi * 3600.0;
 
-	double min_flux = 4 * log(2) * frms * pow(thetaH/thetaB, 2); 
+	double min_flux = 4.0 * log(2.0) * frms * pow(thetaH/thetaB, 2.0); 
 
 	return min_flux;
 }
@@ -429,6 +445,98 @@ double Calc_sv(double mx, double r){ // potentially add ch, z here?
 
 }
 
+void runComa(int ch){
+	c.name = "Coma";
+	c.ch = ch;	 						//darksusy channel
+	c.z = 0.0232; 						//redshift
+	c.rh = 0.415;						//halo radius Mpc
+	c.B0 = 4.7;							//	
+	c.rcore = 0.291*mpc2cm;				//
+
+
+	double rcm = c.rh * mpc2cm ; 
+	double rmax = rconst(rcm);
+
+	std::string channel;
+
+	if(c.ch == 13){
+		channel = "WW";
+		std::cout << channel << std::endl;
+	}
+	else if(c.ch == 15){
+		channel = "ee";
+		std::cout << channel << std::endl;
+	}
+	else if(c.ch == 17){
+		channel = "mumu";
+		std::cout << channel << std::endl;
+	}
+	else if(c.ch == 19){
+		
+		channel = "tt";
+		std::cout << channel << std::endl;
+	}
+	else if(c.ch == 25){
+		
+		channel = "bb";
+		std::cout << channel << std::endl;
+	};
+
+	/*int n_mx = 100 ;//number of mx values used
+	double mx_min = 5;
+	double mx_max = 1000;
+
+	double mx15 = mx_min * ( exp(    (log(mx_max) - log(mx_min))/ n_mx * 15));
+	double mx34 = mx_min * ( exp(    (log(mx_max) - log(mx_min))/ n_mx * 34));
+	double mx57 = mx_min * ( exp(    (log(mx_max) - log(mx_min))/ n_mx * 57));
+	double mx73 = mx_min * ( exp(    (log(mx_max) - log(mx_min))/ n_mx * 73));
+	double mx80 = mx_min * ( exp(    (log(mx_max) - log(mx_min))/ n_mx * 80));
+	double mx93 = mx_min * ( exp(    (log(mx_max) - log(mx_min))/ n_mx * 93));
+
+	//std::cout << "mx15 = " << mx15 << ": " << Calc_sv(  mx15 ,rmax)<< std::endl;
+	std::cout << "mx34 = " << mx34 << ": " << Calc_sv(  mx34 ,rmax)<< std::endl;	
+	std::cout << "mx57 = " << mx57 << ": " << Calc_sv(  mx57 ,rmax)<< std::endl;
+	std::cout << "mx73 = " << mx73 << ": " << Calc_sv(  mx73 ,rmax)<< std::endl;
+	std::cout << "mx80 = " << mx80 << ": " << Calc_sv(  mx80 ,rmax)<< std::endl;
+	std::cout << "mx93 = " << mx93 << ": " << Calc_sv(  mx93 ,rmax)<< std::endl;
+*/
+	
+	std::ostringstream makefilename;
+	makefilename << c.name << "_" << channel << "test.txt" ;
+	std::string filename = makefilename.str();
+	
+
+
+	int n_mx = 100 ;//number of mx values used
+
+	std::ofstream file(filename.c_str());
+	for (int i = 0 ; i < n_mx +1 ; ++i){
+
+		// iteration timer start
+		std::clock_t start;
+		double duration;
+		start = std::clock();
+		int a ; 
+		///////before algorithm
+
+			double mx_min = 5;
+			double mx_max = 1000;
+
+			double mx = mx_min * ( exp(    (log(mx_max) - log(mx_min))/ n_mx * i));
+
+			file << mx << "\t" << Calc_sv(mx,rmax) <<std::endl;
+			//std::cout << "sv( " << mx << " ) = " << Calc_sv(mx, rmax) << std::endl;
+		////////after algorithm
+		duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
+		std::cout << c.ch << " time = " << i << " " << duration <<std::endl;
+
+	}
+
+//end runComa()
+}
+
+
+
 
 main(){
 	//total time timer start
@@ -440,38 +548,7 @@ main(){
 	
 		dsinit_(); //initialixe DarkSUSY
 
-		int n_mx = 100 ;//number of mx values used
-
-		double rcm = c.rh * mpc2cm ; 
-		double rmax = rconst(rcm);
-
-		// main algorithm
-		std::ofstream file("coma_ch19_timeTest.txt");	
-		for (int i = 0 ; i < n_mx +1 ; ++i){
-
-			// iteration timer start
-			std::clock_t start;
-			double duration;
-			start = std::clock();
-			int a ; 
-			///////before algorithm
-
-
-				double mx_min = 5;
-				double mx_max = 1000;
-
-				double mx = mx_min * ( exp(    (log(mx_max) - log(mx_min))/ n_mx * i));
-
-				file << mx << "\t" << Calc_sv(mx,rmax) <<std::endl;
-				std::cout << "sv( " << mx << " ) = " << Calc_sv(mx, rmax) << std::endl;
-
-
-	     	////////after algorithm
-			duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
-			std::cout << " time = " << i << " " << duration <<std::endl;
-
-		}
-
+		runComa(25);
 
 	////////after algorithm
 	duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;

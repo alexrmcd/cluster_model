@@ -1,4 +1,4 @@
-GFORTRAN module version '10' created from RadioDMcalc.f
+GFORTRAN module version '10' created from rdmtest.f
 MD5:923cd3e9b47bdfbfb1829342576ecc7b -- If you edit this, you'll get what you deserve.
 
 (() () () () () () () () () () () () () () () () () () () () () () ()

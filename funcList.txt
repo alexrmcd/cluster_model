@@ -1,0 +1,110 @@
+
+c++/fortran
+***** DMcalc.cpp *****
+
+main()
+void runComa(int ch)
+
+double Calc_sv(double mx, double r) --
+
+double min_flux(double r) 
+	0.03520025222793697617 / 3.5798124717984853E-002
+
+double gslInt_ssyn( double r , double mx)
+	39764119.46853935719 / 1835924528.2448518
+
+double dssyn( double r, void * params )
+
+
+		dssyn: 1.786121854121177269e-17
+		dssyn: 1.171330130877182285e-16
+		dssyn: 3.180372031967136261e-18
+		dssyn: 9.398577605333948691e-17
+		dssyn: 3.820984211591383567e-18
+		dssyn: 6.509298607217578172e-17
+		dssyn: 5.256244907814187037e-18
+		dssyn: 4.04438821635805428e-17
+		dssyn: 8.107103009735117368e-18
+		dssyn: 2.358283717514472804e-17
+		dssyn: 1.357068374497403889e-17
+		dssyn: 1.224684537874227266e-16
+		dssyn: 3.066818085718099548e-18
+		dssyn: 1.071571546092566284e-16
+		dssyn: 3.422754846287155052e-18
+		dssyn: 7.946877415369977677e-17
+		dssyn: 4.411948136709286786e-18
+		dssyn: 5.187798539305891052e-17
+		dssyn: 6.445926814027145951e-18
+		dssyn: 3.103309253243119959e-17
+		dssyn: 1.040973940026719939e-17
+						/
+							/
+								/
+									/
+
+		 ssynintegrand:     8.3835615991714809E-016
+		 ssynintegrand:     5.3496771138771057E-015
+		 ssynintegrand:     1.5635074402152031E-016
+		 ssynintegrand:     4.2943891287576846E-015
+		 ssynintegrand:     1.8688783316174030E-016
+		 ssynintegrand:     2.9821113653880541E-015
+		 ssynintegrand:     2.5483004545114456E-016
+		 ssynintegrand:     1.8652910561743190E-015
+		 ssynintegrand:     3.8846271740879684E-016
+		 ssynintegrand:     1.0996679908223237E-015
+		 ssynintegrand:     6.4138857672985789E-016
+		 ssynintegrand:     5.5934409834889080E-015
+		 ssynintegrand:     1.5092112169641921E-016
+		 ssynintegrand:     4.8944237248201149E-015
+		 ssynintegrand:     1.6792288160264262E-016
+		 ssynintegrand:     3.6344084609324227E-015
+		 ssynintegrand:     2.1493400310688331E-016
+		 ssynintegrand:     2.3832844885166815E-015
+		 ssynintegrand:     3.1076802638274673E-016
+		 ssynintegrand:     1.4384983748184424E-015
+		 ssynintegrand:     4.9541782679828443E-016
+
+			
+
+
+double gslInt_jsyn(double mx, double r)
+		10^10 /10^~8,9
+double djsyn(double E , void * params)
+
+double gslInt_psyn(  double E, double r)
+problem shows up here^
+double dpsyn(double theta, void * params )
+
+	--a little weird... o -252 /o -20-50 max
+double fff(double x)
+double dndeeq(double mx, double E, double r ) 
+	both have same order, ranges from 13/14 to 19 min 0 
+
+
+
+
+these seem alright
+double gslInt_ds( double Ep, double mx)
+double ddarksusy (double Ep, void * params)
+double DM_profile(double r)
+
+
+double rconst(double rcm)
+	1.280556369999999932e+24/1.2805564308231637E+024
+
+double Dist()
+double ddist(double z  , void * params)
+double bloss(double E , double r)
+double bfield_model (double r)
+
+
+
+
+
+
+
+problematic, 
+n_mx:
+
+15, 34, 57, 73, 80, 93
+

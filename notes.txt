@@ -18,10 +18,23 @@ L(~120) psyn()
 
 
 
+
+//////// DMcalcDV.cpp ////////
+
+incorporate  root_dv()
+
+
 //////// diffusionEq.cpp ////////
 
 
-bring DM_profile const into cluster def??
+
+
+
+
+make function that presets cluster basedon string name
+
+
+bring DM_profile const into cluster def?
 
 
 for ds, pass mx as *(double*) params

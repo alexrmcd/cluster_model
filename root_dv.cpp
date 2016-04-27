@@ -153,12 +153,18 @@ double root_dv(double E, double Ep, double mx ){
 main(){
 
 	double mx  = 100;
-	double E = 1;
+	double E = 1 ;
 
+
+	std::cout << root_dv(E, mx , mx) << std::endl; 
 	for (int i = 0 ; i < mx + 1 ; ++i ){
-
-		std::cout << i << "  "  << root_dv(E, i, mx) << std::endl;
+		//std::cout << i << " v(Ep) =  "  << sqrt ( v( i, mx)  )/mpc2cm * 1000 << std::endl;
+		std::cout << i << " rdv = "   << root_dv(E, i, mx) << std::endl;
 
 	}
 
 }
+
+
+
+//			std::cout << "		" << 		<< std::endl;

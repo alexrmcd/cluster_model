@@ -116,7 +116,7 @@ double dv(double E , void * params){
 
 double v( double E,  double mx ){
 	
-	double max = U(E, mx);
+	double max =   U(E, mx);
 	//std::cout << "max: " << max << std::endl;
 	double min = 0;
 
@@ -154,17 +154,43 @@ main(){
 
 	double mx  = 100;
 	double E = 1 ;
-
+	//total time timer start
+	std::clock_t start;
+	double duration;
+	start = std::clock();
+	int a ; 
+	///////before algorithm
 
 	std::cout << root_dv(E, mx , mx) << std::endl; 
 	for (int i = 0 ; i < mx + 1 ; ++i ){
 		//std::cout << i << " v(Ep) =  "  << sqrt ( v( i, mx)  )/mpc2cm * 1000 << std::endl;
+		
+		//root_dv(E, i, mx) ;
 		std::cout << i << " rdv = "   << root_dv(E, i, mx) << std::endl;
 
 	}
+
+
+	////////after algorithm
+	duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
+	std::cout << "Total time:  " << duration <<std::endl;
+
+
 
 }
 
 
 
 //			std::cout << "		" << 		<< std::endl;
+
+
+
+/*
+
+
+
+
+
+
+
+	*/

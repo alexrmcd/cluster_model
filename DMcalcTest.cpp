@@ -174,9 +174,36 @@ double dv(double E , void * params){
 }
 
 
+double v( double E,  double mx , double umax){
+	
+	//double max =  U(E, mx);
+	//std::cout << "in v: "<< max <<std::endl;
+
+	double min = 0;
+
+
+		gsl_integration_workspace * w 
+		= gsl_integration_workspace_alloc (5000);
+
+	double result, error;
+
+	gsl_function F;
+	F.function = &dv;
+
+
+	gsl_integration_qags (&F, min, umax, 0, 1e-3, 5000, 
+	                w, &result, &error); 
+
+	gsl_integration_workspace_free (w);
+
+	result *= 1e16;
+	return result;
+}
+
 double v( double E,  double mx ){
 	
-	double max = U(E, mx);
+	double max =  U(E, mx);
+	//std::cout << "in v: "<< max <<std::endl;
 
 	double min = 0;
 
@@ -199,7 +226,7 @@ double v( double E,  double mx ){
 	return result;
 }
 
-double root_dv(double E, double Ep, double mx ){
+double root_dv(double E, double Ep, double mx, double umax ){
 
 	std::clock_t start;
 	double duration;
@@ -207,13 +234,13 @@ double root_dv(double E, double Ep, double mx ){
 	int a ; 
 	///////before algorithm
 
-	double root_dv  =   sqrt( ( v( E, mx) - v(Ep, mx))   ) ;
+	double root_dv  =   sqrt( ( v( E, mx, umax) - v(Ep, mx))   ) ;
 
 	double root_dvcm  = root_dv/mpc2cm *1000;
 
 	////////////
 	duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
-	//std::cout << "root_dv time:  " << duration <<std::endl;
+	//std::cout << "root_dv:  " << root_dvcm <<std::endl;
 
 	return root_dv;
 }
@@ -274,13 +301,7 @@ double rconst(double rcm){
 }
 
 
-double dGreens(double rp, void * params ){ 
-
-	std::vector<double> greenParam = *(std::vector<double> *)params;
-
-	double ri = greenParam[0];
-	double r  = greenParam[1];
-	double root_dv  = greenParam[2];
+double dGreens(double rp,  double ri , double r , double root_dv){ 
 
 
 	double dGreens = ( 1/root_dv ) * rp/ri * (exp( - pow( (rp-ri)/( 2*root_dv ) , 2)) 
@@ -290,37 +311,14 @@ double dGreens(double rp, void * params ){
 
 }
 
+double GreenSum (double rp, void * params) {  //called by ddsyn
 
-double gslInt_Greens(double ri , double r, double rh, double root_dv){
-
-
-	gsl_integration_workspace * w 
-		= gsl_integration_workspace_alloc (5000);
-
-	double result, error;
-
-	std::vector<double> greenParam (3);
+	std::vector<double> greenParam = *(std::vector<double> *)params;
 
 
-	greenParam[0] = ri ;
-	greenParam[1] = r ;
-	greenParam[2] = root_dv ;
+	double r  = greenParam[0];
+	double root_dv  = greenParam[1];
 
-	gsl_function F;
-	F.function = &dGreens;
-	F.params = &greenParam;
-
-	gsl_integration_qags (&F, 1e-16, rh, 0, 1e-3, 5000, //x?
-	                w, &result, &error); 
-
-	gsl_integration_workspace_free (w);
-
-	return result;
-
-}
-
-
-double Greens (double r, double root_dv) {  //called by ddsyn
 
 	double rh = c.rh * mpc2cm ;
 	int imNum = 10; //number of image pairs
@@ -344,20 +342,51 @@ double Greens (double r, double root_dv) {  //called by ddsyn
 		else
 			ri = (pow(-1 , i)*r + 2*i*rh);
 
-		Gsum += pow(-1, i) * gslInt_Greens(ri, r, rh , root_dv);
+		Gsum += pow(-1, i) * dGreens(rp, ri, r, root_dv);
 
 	}
 
-	double Greens = pow(4*pi , -1.0/2.0)*Gsum ;
+	double GreenSum = pow(4*pi , -1.0/2.0)*Gsum ;
 
 	/*	///////after algorithm
 	duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
 	std::cout << "greens duration: " << duration << std::endl;
 	*/	///////
 
-	return Greens;
+	return GreenSum;
 
 }
+
+
+double gslInt_GreenSum(double r,  double root_dv){
+
+
+	gsl_integration_workspace * w 
+		= gsl_integration_workspace_alloc (5000);
+
+	double result, error;
+
+	std::vector<double> greenParam (3);
+
+	double rh = c.rh*mpc2cm;
+	greenParam[0] = r ;
+	greenParam[1] = root_dv ;
+
+	gsl_function F;
+	F.function = &GreenSum;
+	F.params = &greenParam;
+
+	gsl_integration_qags (&F, 1e-16, rh, 0, 1e-3, 5000, //x?
+	                w, &result, &error); 
+
+	gsl_integration_workspace_free (w);
+
+	return result;
+
+}
+
+
+
 
 
 double darksusy (double Ep, double mx){
@@ -373,30 +402,61 @@ double darksusy (double Ep, double mx){
 double ddiffusion(double Ep, void * params){
 	std::vector<double> diffusionParams = *(std::vector<double> *)params;
 
+
+
+
+
 	double E = diffusionParams[0];
 	double mx = diffusionParams[1] ;
 	double r = diffusionParams[2] ;
+	double umax = diffusionParams[3];
 
-	double rootdv = 0.035*mpc2cm;// root_dv(E, Ep, mx);// 
-	double ddiffusion = darksusy(Ep, mx)* Greens(r, rootdv) ;//;
 
+
+
+
+
+
+
+	//total time timer start
+	std::clock_t start;
+	double duration;
+	start = std::clock();
+	int a ; 
+	///////before algorithm
+
+
+	double rootdv = root_dv(E, Ep, mx, umax);//	0.035*mpc2cm ; // 
+
+
+
+
+
+	double ddiffusion = darksusy(Ep, mx)* gslInt_GreenSum(r, rootdv) ;//;
+		////////after algorithm
+	duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
+	//std::cout << "ddiffusion:  " << duration <<std::endl;
 
 	return ddiffusion;
 
 }
 
 double gslInt_diffusion( double E, double mx , double r){
+
+	double umax = U(E,mx);
+	//std::cout << "umax:  " << umax << std::endl;
 		
 	gsl_integration_workspace * w 
 		= gsl_integration_workspace_alloc (5000);
 
 	double result, error;
 
-	std::vector<double> diffusionParams (3);
+	std::vector<double> diffusionParams (4);
 
 	diffusionParams[0] = E;
 	diffusionParams[1] = mx;
 	diffusionParams[2] = r;
+	diffusionParams[3] = umax;
 
 	gsl_function F;
 	F.function = &ddiffusion;
@@ -406,13 +466,29 @@ double gslInt_diffusion( double E, double mx , double r){
 	                    w, &result, &error); 
 
 	gsl_integration_workspace_free (w);
+		//std::cout << "result: " <<result << std::endl;
 	return result;
 
 }
 
 double dndeeq(double mx, double E, double r ){
 
-	double dndeeq = 	(1 / c.bloss(E,r)) * gslInt_diffusion(E, mx, r);		; 
+
+
+	//total time timer start
+	std::clock_t start;
+	double duration;
+	start = std::clock();
+	int a ; 
+	///////before algorithm
+
+	double dndeeq = 	(1 / c.bloss(E,r))* gslInt_diffusion(E, mx, r);	
+
+
+
+		////////after algorithm
+	duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
+	std::cout << "dndeeq time:  " << duration <<std::endl;
 
 	return dndeeq;
 
@@ -481,6 +557,7 @@ double djsyn(double E , void * params){
 
 	double djsyn = 2* gslInt_psyn(E, alpha[1])* dndeeq(alpha[0], E , alpha[1]);
 
+
 	return djsyn;
 }
 
@@ -518,6 +595,8 @@ double gslInt_jsyn(double mx, double r){
 
 	duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
 	std::cout << "jsyn duration: " << duration <<std::endl;  //      ~30s-60s
+
+	std::cout << "ints: " << w -> size << std::endl;
 
 
 	return result;
@@ -619,7 +698,8 @@ void runComa(int ch){
 	makefilename << c.name << "_" << channel << "DV.txt" ;
 	std::string filename = makefilename.str();
 	*/
-	
+	std::cout << "Running mx = 50" << std::endl;
+	std::cout << "mx = 50" << Calc_sv(50, rmax) <<std::endl;
 
 	int n_mx = 100 ;//number of mx values used
 

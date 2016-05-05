@@ -292,25 +292,27 @@ double rconst(double rcm){
 }
 
 
-double dGreens(double rp,  double ri , double root_dv){ 
+double dGreens(double rp,  void * params){ 
+	std::vector<double> greenParam = *(std::vector<double> *)params;
+	double ri = greenParam[0] ;
+	double root_dv = greenParam[1];
 
-
-	double dGreens = 1/ri * (exp( - pow( (rp-ri)/( 2*root_dv ) , 2)) - exp( - pow( ( rp + ri)/(2*root_dv) , 2)) ) ;
+	double dGreens = rp/ri* pow( c.DM_profile(rp) ,2.0) * (exp( - pow( (rp-ri)/( 2*root_dv ) , 2)) - exp( - pow( ( rp + ri)/(2*root_dv) , 2)) ) ;
 
 	return dGreens;
 
 }
-
+/*
 double GreenSum (double rp, void * params) {  //called by ddsyn
 
 	std::vector<double> greenParam = *(std::vector<double> *)params;
 
 
-	double r  = greenParam[0];
-	double root_dv  = greenParam[1];
-	double rho_r  = greenParam[2];
 
-	double rho_rp =  c.DM_profile(rp);
+	double root_dv  = greenParam[1];
+
+
+
 	double rh = c.rh * mpc2cm ;
 	int imNum = 7; //number of image pairs + 1
 	double Gsum = 0 ;
@@ -330,14 +332,14 @@ double GreenSum (double rp, void * params) {  //called by ddsyn
 
 	}
 
-	Gsum *=  rp*pow(rho_rp/rho_r ,2.0);
+	Gsum *=  ;
 
 	return Gsum;
 
-}
+}*/
 
 
-double gslInt_GreenSum(double r,  double root_dv){
+double gslInt_Green(double ri,  double root_dv){
 	/*	///////////
 	std::clock_t start;
 	double duration;
@@ -350,15 +352,15 @@ double gslInt_GreenSum(double r,  double root_dv){
 
 	double result, error;
 
-	std::vector<double> greenParam (3);
+	std::vector<double> greenParam (2);
 
 	double rh = c.rh*mpc2cm;
-	greenParam[0] = r ;
+	greenParam[0] = ri ;
 	greenParam[1] = root_dv ;
-	greenParam[2] = c.DM_profile(r) ;
+
 
 	gsl_function F;
-	F.function = &GreenSum;
+	F.function = &dGreens;
 	F.params = &greenParam;
 
 	gsl_integration_qags (&F, 1e-16, rh, 0, 1e-3, 1000, //x?
@@ -391,20 +393,20 @@ double ddiffusion(double Ep, void * params){
 	std::vector<double> diffusionParams = *(std::vector<double> *)params;
 
 	double E = diffusionParams[0];
-	double r = diffusionParams[1] ;
+	double ri = diffusionParams[1] ;
 	double vE = diffusionParams[2];
 
 	//double upmax = U(Ep);
 
 	double rootdv = root_dv( Ep, vE);//	0.035*mpc2cm ; // 	 
 
-	double ddiffusion = darksusy(Ep) * (1.0/rootdv) * gslInt_GreenSum(r, rootdv);
+	double ddiffusion = darksusy(Ep) * (1.0/rootdv) * gslInt_Green(ri, rootdv);
 
 	return ddiffusion;
 
 }
 
-double gslInt_diffusion( double E,  double r){			// int over Ep
+double gslInt_diffusion( double E,  double ri){			// int over Ep
 
 	double vE = v(E);
 	//std::cout << "umax:  " << umax << std::endl;
@@ -417,8 +419,7 @@ double gslInt_diffusion( double E,  double r){			// int over Ep
 	std::vector<double> diffusionParams (3);
 
 	diffusionParams[0] = E;
-
-	diffusionParams[1] = r;
+	diffusionParams[1] = ri;
 	diffusionParams[2] = vE;
 
 	gsl_function F;
@@ -436,22 +437,41 @@ double gslInt_diffusion( double E,  double r){			// int over Ep
 
 double dndeeq(double E, double r ){
 
-
-
-	//total time timer start
+	/*//total time timer start
 	std::clock_t start;
 	double duration;
 	start = std::clock();
 	int a ; 
-	///////before algorithm
-
-	double dndeeq = pow(4*pi , -1.0/2.0)*(1 / c.bloss(E,r))* gslInt_diffusion(E, r);	
+	///////before algorithm*/
 
 
+	double rh = c.rh * mpc2cm ;
+	int imNum = 7; //number of image pairs + 1
+	double diffsum = 0 ;
 
-		////////after algorithm
-	duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
-	std::cout << "dndeeq time:  " << duration <<std::endl;
+
+	for (int i = - imNum; i < imNum + 1; ++i ){
+
+
+		double ri;
+		
+		if (i == 0)
+			ri = r;
+		else
+			ri = (pow(-1 , i)*r + 2*i*rh);
+
+		diffsum += pow(-1, i) * gslInt_diffusion(E, ri);
+
+
+	}
+
+	double dndeeq = pow(4*pi , -1.0/2.0)*(1 / c.bloss(E,r))* pow(c.DM_profile(r) , -2.0)*diffsum ;	//gslInt_diffusion(E, r);	
+
+				////////after algorithm
+	//duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
+	//if (duration >= 0.1)
+		//std::cout << "dndeeq time( E = " << E << "  r = " << r/mpc2cm*1000 << "  ):  " << duration <<std::endl;
+
 
 	return dndeeq;
 
@@ -659,16 +679,16 @@ void runComa(int ch){
 		channel = "bb";
 	};
 
-	/*
+	
 	std::ostringstream makefilename;
-	makefilename << c.name << "_" << channel << "DV.txt" ;
+	makefilename << c.name << "_" << channel << "Test2.txt" ;
 	std::string filename = makefilename.str();
 
 
-	*/
+	
 
 
-		//total time timer start
+	/*	//total time timer start
 	std::clock_t start;
 	double duration;
 	start = std::clock();
@@ -681,13 +701,13 @@ void runComa(int ch){
 
 	////////after algorithm
 	duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
-	std::cout << "mx = 50 time:  " << duration <<std::endl;
+	std::cout << "mx = 50 time:  " << duration <<std::endl;*/
 
-	int n_mx = 1000 ;//number of mx values used
+	int n_mx = 100 ;//number of mx values used
 
-	/*
+	
 
-	//std::ofstream file(filename.c_str());
+	std::ofstream file(filename.c_str());
 	for (int i = 0 ; i < n_mx +1 ; ++i){
 
 		// iteration timer start
@@ -699,16 +719,17 @@ void runComa(int ch){
 
 			double mx_min = 5;
 			double mx_max = 1000;
+			double data;
 
-			double p.mx = mx_min * ( exp(    (log(mx_max) - log(mx_min))/ n_mx * i));
-
-			//file << mx << "\t" << Calc_sv(p.mx,rmax) <<std::endl;
-			std::cout << "sv( " << p.mx << " ) = " << Calc_sv(p.mx, rmax) << std::endl;
+			p.mx = mx_min * ( exp(    (log(mx_max) - log(mx_min))/ n_mx * i));
+			data = Calc_sv(rmax);
+			file << p.mx << "\t" <<  data <<std::endl;
+			std::cout << "sv( " << p.mx << " ) = " << data << std::endl;
 		////////after algorithm
 		duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
 		std::cout << p.ch << " time = " << i << " " << duration <<std::endl;
 
-	}*/
+	}
 
 //end runComa()
 }

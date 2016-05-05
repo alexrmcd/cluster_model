@@ -11,20 +11,10 @@
 #include <ctime>
 #include <vector>
 #include <gsl/gsl_integration.h>
+#include <iomanip> 
 
-#include <iomanip> //for ts
-//should go in a constants header
 
-const 
-	double pi = 3.14159265359;
-	double mpc2cm = 3.085678e24; 	//Mpc to cm
-	double clight = 299792.458;		// km/s
-	double H0 = 70.4;				// km/s/Mpc
-	double OmegaM = 0.272 ; 		
-	double OmegaL = 0.728 ;
-	double me = 0.000511; //mass electron in Gev
-	double GeVJy=1.6e20 ;   //GeV/s/Hz/cm^2 to Jy
-	double n = 1e-3 ; //electron density
+#include "Constants.h"
 
 /* to compile and run, use command 
 
@@ -64,7 +54,7 @@ class Cluster{
 				rh(0),						//halo radius Mpc
 				ch(0), 						//darksusy channel
 				B0(0), rcore(0)	,			//Bfield Params
-				root_dv(0.035)					//DIffusion parameter, not really a cluster thing but easy access is good
+				root_dv(0.06)					//DIffusion parameter, not really a cluster thing but easy access is good
 
 	{	//everything labelled or Coma, sgould work in user options
 		std::cout << "creating cluster... " << std::endl;
@@ -482,27 +472,9 @@ void runComa(int ch){
 		std::cout << channel << std::endl;
 	};
 
-	/*int n_mx = 100 ;//number of mx values used
-	double mx_min = 5;
-	double mx_max = 1000;
-
-	double mx15 = mx_min * ( exp(    (log(mx_max) - log(mx_min))/ n_mx * 15));
-	double mx34 = mx_min * ( exp(    (log(mx_max) - log(mx_min))/ n_mx * 34));
-	double mx57 = mx_min * ( exp(    (log(mx_max) - log(mx_min))/ n_mx * 57));
-	double mx73 = mx_min * ( exp(    (log(mx_max) - log(mx_min))/ n_mx * 73));
-	double mx80 = mx_min * ( exp(    (log(mx_max) - log(mx_min))/ n_mx * 80));
-	double mx93 = mx_min * ( exp(    (log(mx_max) - log(mx_min))/ n_mx * 93));
-
-	//std::cout << "mx15 = " << mx15 << ": " << Calc_sv(  mx15 ,rmax)<< std::endl;
-	std::cout << "mx34 = " << mx34 << ": " << Calc_sv(  mx34 ,rmax)<< std::endl;	
-	std::cout << "mx57 = " << mx57 << ": " << Calc_sv(  mx57 ,rmax)<< std::endl;
-	std::cout << "mx73 = " << mx73 << ": " << Calc_sv(  mx73 ,rmax)<< std::endl;
-	std::cout << "mx80 = " << mx80 << ": " << Calc_sv(  mx80 ,rmax)<< std::endl;
-	std::cout << "mx93 = " << mx93 << ": " << Calc_sv(  mx93 ,rmax)<< std::endl;
-*/
 	
 	std::ostringstream makefilename;
-	makefilename << c.name << "_" << channel << "test.txt" ;
+	makefilename << c.name << "_" << channel << ".txt" ;
 	std::string filename = makefilename.str();
 	
 
@@ -548,6 +520,10 @@ main(){
 	
 		dsinit_(); //initialixe DarkSUSY
 
+		runComa(13);
+		runComa(15);
+		runComa(17);
+		runComa(19);
 		runComa(25);
 
 	////////after algorithm

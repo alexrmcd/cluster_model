@@ -144,31 +144,6 @@ Particle p;
 
 ///////////////////        root_dv        ////////////////////////////////
 
-double du(double Eu, void * params){
-
-	double du = 1.0/c.bloss(Eu);
-
-	return du;
-}
-
-double U(double E) {
-
-	gsl_integration_workspace * w 
-		= gsl_integration_workspace_alloc (1000);
-
-	double result, error;
-
-	gsl_function F;
-	F.function = &du;
-
-	gsl_integration_qags (&F, E, p.mx, 0, 1e-3, 1000, 
-	                w, &result, &error); 
-
-	gsl_integration_workspace_free (w);
-
-	return result;
-
-}
 
 double dv(double E , void * params){
 
@@ -177,32 +152,6 @@ double dv(double E , void * params){
 	return dv;
 }
 
-
-double v( double E,  double umax){
-	
-	//double max =  U(E, mx);
-	//std::cout << "in v: "<< max <<std::endl;
-
-	double min = 0;
-
-
-		gsl_integration_workspace * w 
-		= gsl_integration_workspace_alloc (1000);
-
-	double result, error;
-
-	gsl_function F;
-	F.function = &dv;
-
-
-	gsl_integration_qags (&F, min, umax, 0, 1e-3, 1000, 
-	                w, &result, &error); 
-
-	gsl_integration_workspace_free (w);
-
-	result *= 1e16;
-	return result;
-}
 
 double v( double E ){
 	
@@ -232,7 +181,24 @@ double v( double E ){
 
 double root_dv(double Ep,  double vE){
 
+/*
+		//total time timer start
+	std::clock_t start;
+	double duration;
+	start = std::clock();
+	int a ; 
+	///////before algorithm
+*/
+
+
 	double root_dv  =   sqrt( ( vE ) - v(Ep)   ) ;
+
+/*
+
+	////////after algorithm
+	duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
+	std::cout << "root_dv time:  " << duration <<std::endl;
+*/
 
 	return root_dv;
 }
@@ -301,14 +267,13 @@ double dGreens(double rp,  double ri , double root_dv){
 
 }
 
-double GreenSum (double rp, void * params) {  //called by ddsyn
+double GreenSum (double rp, double r, double root_dv) {  //called by ddsyn
 
-	std::vector<double> greenParam = *(std::vector<double> *)params;
+	//std::vector<double> greenParam = *(std::vector<double> *)params;
 
 
-	double r  = greenParam[0];
-	double root_dv  = greenParam[1];
-	double rho_r  = greenParam[2];
+
+	double rho_r  = c.DM_profile(r);
 
 	double rho_rp =  c.DM_profile(rp);
 	double rh = c.rh * mpc2cm ;
@@ -318,7 +283,7 @@ double GreenSum (double rp, void * params) {  //called by ddsyn
 
 	for (int i = - imNum; i < imNum + 1; ++i ){
 
-
+		//std::cout  << i << "  " ;
 		double ri;
 		
 		if (i == 0)
@@ -331,19 +296,14 @@ double GreenSum (double rp, void * params) {  //called by ddsyn
 	}
 
 	Gsum *=  rp*pow(rho_rp/rho_r ,2.0);
+	//	std::cout << "\n";
 
 	return Gsum;
 
 }
 
-
+/*
 double gslInt_GreenSum(double r,  double root_dv){
-	/*	///////////
-	std::clock_t start;
-	double duration;
-	start = std::clock();
-	int a ; 
-	*/	///////////
 
 	gsl_integration_workspace * w 
 		= gsl_integration_workspace_alloc (1000);
@@ -367,14 +327,10 @@ double gslInt_GreenSum(double r,  double root_dv){
 	gsl_integration_workspace_free (w);
 
 
-	/*		///////after algorithm
-	duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
-	std::cout << "greens duration: " << duration << std::endl;
-	*/	///////
 
 	return result;
 
-}
+}*/
 
 
 double darksusy (double Ep){
@@ -387,7 +343,58 @@ double darksusy (double Ep){
 	return ds;
 }
 
-double ddiffusion(double Ep, void * params){
+
+double dEint(double Ep, void * params ){
+
+	std::vector<double> EintParams = *(std::vector<double> *)params;
+
+	double E = EintParams[0];
+	double r = EintParams[1] ;
+	double vE = EintParams[2];
+	double rp = EintParams[3];
+
+	//std::cout << "vE = " << vE << " , v(Ep) = " << v(Ep)<< std::endl;  
+
+
+
+
+	double rootdv = root_dv( Ep, vE);    //	 0.035*mpc2cm ; // 	
+	//std::cout << rootdv/mpc2cm*1000 << std::endl;
+	double dEint = (1.0/rootdv)  * darksusy(Ep) * GreenSum(rp, r, rootdv);
+
+	return dEint;
+}
+
+double gslInt_Eint(double E, double r, double vE, double rp){
+
+		gsl_integration_workspace * w 
+		= gsl_integration_workspace_alloc (1000);
+
+	double result, error;
+
+	std::vector<double> EintParams (4);
+
+	EintParams[0] = E;
+	EintParams[1] = r;
+	EintParams[2] = vE;
+	EintParams[3] = rp;
+
+	gsl_function F;
+	F.function = &dEint;
+	F.params = &EintParams; 								//pass Ep to rootdv(), pass r from dndeeq as well, 
+	gsl_set_error_handler_off();
+	gsl_integration_qags (&F, E, p.mx, 0, 1e-3, 1000, 
+	                    w, &result, &error); 
+
+	gsl_integration_workspace_free (w);
+
+
+	return result;
+}
+
+
+
+double ddiffusion(double rp, void * params){
 	std::vector<double> diffusionParams = *(std::vector<double> *)params;
 
 	double E = diffusionParams[0];
@@ -396,10 +403,12 @@ double ddiffusion(double Ep, void * params){
 
 	//double upmax = U(Ep);
 
-	double rootdv = root_dv( Ep, vE);//	0.035*mpc2cm ; // 	 
+	/*double rootdv = root_dv( Ep, vE);//	0.035*mpc2cm ; // 	 
 
-	double ddiffusion = darksusy(Ep) * (1.0/rootdv) * gslInt_GreenSum(r, rootdv);
+	double ddiffusion = darksusy(Ep) * (1.0/rootdv) * */
 
+	double ddiffusion = gslInt_Eint(E, r, vE, rp);	//;
+	//std::cout << "here" << std::endl;// " rp " << rp/mpc2cm*1000 <<std::endl;
 	return ddiffusion;
 
 }
@@ -414,10 +423,12 @@ double gslInt_diffusion( double E,  double r){			// int over Ep
 
 	double result, error;
 
+	double rh = c.rh*mpc2cm;
+
+
 	std::vector<double> diffusionParams (3);
 
 	diffusionParams[0] = E;
-
 	diffusionParams[1] = r;
 	diffusionParams[2] = vE;
 
@@ -425,7 +436,7 @@ double gslInt_diffusion( double E,  double r){			// int over Ep
 	F.function = &ddiffusion;
 	F.params = &diffusionParams; 								//pass Ep to rootdv(), pass r from dndeeq as well, 
 	gsl_set_error_handler_off();
-	gsl_integration_qags (&F, E, p.mx, 0, 1e-3, 1000, 
+	gsl_integration_qags (&F, 1e-16, rh, 0, 1e-3, 1000, 
 	                    w, &result, &error); 
 
 	gsl_integration_workspace_free (w);
@@ -446,8 +457,6 @@ double dndeeq(double E, double r ){
 	///////before algorithm
 
 	double dndeeq = pow(4*pi , -1.0/2.0)*(1 / c.bloss(E,r))* gslInt_diffusion(E, r);	
-
-
 
 		////////after algorithm
 	duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;

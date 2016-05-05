@@ -44,16 +44,17 @@ class Cluster{
 Cluster c;
 
 
-double bloss(double E ){ 												//overload so that we can just have bloss(E), could also have same as b(E, r) but set r=0 ??  kinda sloppy
+double bloss(double E ){ 	
+	//std::cout <<  "E in bloss: " << E <<std:: endl;											//overload so that we can just have bloss(E), could also have same as b(E, r) but set r=0 ??  kinda sloppy
 	double ne = 1.3e-3;
 	double Bmu = 1;													//should us average or something later
 
 	double bloss = 0.0254*pow(Bmu, 2.0)*E*E 								//bsyn bfield_model(r)
-					+ 0.25 /** pow(1 + c.z, 4 )*/*E*E  					//bIC
+					+ 0.25 /** pow(1 + c.z, 4 )*/*E*E  		//bIC
 					+ 1.51*ne*(0.36 + log(E/me/ne) )						//brem , in Emma's code  has + 1.51*n*(0.36 + log(E/me) )*E
-					+ 6.13*ne*( 1 + log(E/me/ne)/75); 					//bcoul
+					+ 6.13*ne*( 1 + log(E/me/ne)/75); 				//bcoul
 
-	bloss = bloss ;//	*1e-16;	
+
 
 	return bloss;
 };
@@ -67,7 +68,7 @@ double D(double E){
 	double db = pow(20.0 , 2.0/3.0); //just a scaling factor
 	double D0 = 3.1e28; // cm/s
 
-	double D = db * D0 * pow(E, alpha)/pow(Bmu , 1.0/3.0);
+	double D = db * D0 * pow(E, alpha)*pow(Bmu , -1.0/3.0);
 
 	return D;
 }
@@ -84,7 +85,7 @@ double du(double Eu, void * params){
 
 
 double U(double E, double mx) {
-
+	//std::cout << "E in U: " << E<< std::endl;
 	gsl_integration_workspace * w 
 		= gsl_integration_workspace_alloc (5000);
 
@@ -105,7 +106,7 @@ double U(double E, double mx) {
 
 
 double dv(double E , void * params){
-
+	//std::cout << "E in dv: " << E<< std::endl;
 	double dv = D(E)/bloss(E);
 
 	return dv;
@@ -115,12 +116,12 @@ double dv(double E , void * params){
 
 
 double v( double E,  double mx ){
-	
-	double max =   U(E, mx);
-	//std::cout << "max: " << max << std::endl;
-	double min = 0;
-
-
+	//std::cout << "E in v: " << E<< std::endl;
+	/*double max =   U(E, mx);
+	std::cout << "max: " << max << std::endl;
+	double min = mx;// 0;
+	std::cout << "min: " << min << std::endl;
+*/
 		gsl_integration_workspace * w 
 		= gsl_integration_workspace_alloc (5000);
 
@@ -130,12 +131,12 @@ double v( double E,  double mx ){
 	F.function = &dv;
 
 
-	gsl_integration_qags (&F, min, max, 0, 1e-3, 5000, 
+	gsl_integration_qags (&F, E, mx, 0, 1e-3, 5000, 
 	                w, &result, &error); 
 
 	gsl_integration_workspace_free (w);
 
-	result *= 1e16;
+	//result *= 1e16;
 	return result;
 }
 
@@ -144,8 +145,8 @@ double v( double E,  double mx ){
 double root_dv(double E, double Ep, double mx ){
 
 
-	double root_dv  =   sqrt( ( v( E, mx) - v(Ep, mx))   )/mpc2cm * 1000 ;
-
+	double root_dv  =  sqrt( ( v( E, mx) - v(Ep, mx))   )/mpc2cm * 1000 ;
+	root_dv *= 1e8;
 	return root_dv;
 }
 
@@ -153,7 +154,7 @@ double root_dv(double E, double Ep, double mx ){
 main(){
 
 	double mx  = 100;
-	double E = 1 ;
+	double E = 90 ;
 	//total time timer start
 	std::clock_t start;
 	double duration;
@@ -161,8 +162,8 @@ main(){
 	int a ; 
 	///////before algorithm
 
-	std::cout << root_dv(E, mx , mx) << std::endl; 
-	for (int i = 0 ; i < mx + 1 ; ++i ){
+	//std::cout << root_dv(E, 5 , mx) << std::endl; 
+	for (int i = 0 ; i < mx +1 ; ++i ){
 		//std::cout << i << " v(Ep) =  "  << sqrt ( v( i, mx)  )/mpc2cm * 1000 << std::endl;
 		
 		//root_dv(E, i, mx) ;
@@ -170,6 +171,8 @@ main(){
 
 	}
 
+	std::cout   << v(1,mx) - v(5,mx) << std::endl;
+	//std::cout << " Umax(E = .511) : " << v(0,5,  mx) << std::endl;
 
 	////////after algorithm
 	duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;

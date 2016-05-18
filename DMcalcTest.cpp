@@ -312,7 +312,7 @@ double GreenSum (double rp, void * params) {  //called by ddsyn
 
 	double rho_rp =  c.DM_profile(rp);
 	double rh = c.rh * mpc2cm ;
-	int imNum = 7; //number of image pairs + 1
+	int imNum = 4; //number of image pairs + 1
 	double Gsum = 0 ;
 
 
@@ -338,12 +338,12 @@ double GreenSum (double rp, void * params) {  //called by ddsyn
 
 
 double gslInt_GreenSum(double r,  double root_dv){
-	/*	///////////
+		///////////
 	std::clock_t start;
 	double duration;
 	start = std::clock();
 	int a ; 
-	*/	///////////
+		///////////
 
 	gsl_integration_workspace * w 
 		= gsl_integration_workspace_alloc (1000);
@@ -367,10 +367,10 @@ double gslInt_GreenSum(double r,  double root_dv){
 	gsl_integration_workspace_free (w);
 
 
-	/*		///////after algorithm
+			///////after algorithm
 	duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
-	std::cout << "greens duration: " << duration << std::endl;
-	*/	///////
+	//std::cout << "greens duration: " << duration << std::endl;
+		///////
 
 	return result;
 

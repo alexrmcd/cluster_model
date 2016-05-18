@@ -1,5 +1,24 @@
 ------------- Notes for Coding---------------
 
+5-17-16
+time for test2 67788.6
+
+
+DMcalcAnnulus.cpp
+	Coma_bbAnnulus.txt n=75
+	Coma_bbAnnulus2.txt n=20 not done
+
+DMcalctest2.cpp switched to epsrel = 1e-1 in greens and dndeeq ints
+	Coma_bbTest.txt -> Coma_bbAVEeps1.txt n = 50 ~8300s
+	use exact rootdv causes each data point to be ~800 -> 900 s
+for epsrel 1e-1, t(mx=5) <2 s,but with epsrel=1e-2, lookin at more like 2-3s.
+(note epsrel changed in v(), gslInt_greens, gslInt_diffusion)
+
+
+epsrel = 1e-1 --> 8300s
+epsrel = 1e-2 --> 14500s (mx = 1000 -> 470s)
+
+
 
 //////// radioCalc.cpp ////////
 

@@ -1,7 +1,7 @@
-// 4-19-16
-//
-// Diffusion Equation with spatial diffusion, diffusion const independent of spatial coordinate -> D(E). Uses GSL and Darksusy
-//
+////////////////////////////////////////////////////
+////		FluxDensity.cpp 			5-19-16  ///
+////////////////////////////////////////////////////
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -19,7 +19,7 @@
 
 /* to compile and run, use command 
 
-g++ -o DMcalc DMcalc.cpp  -I/home/alex/research/darksusy-5.1.2/include -L/home/alex/research/darksusy-5.1.2/lib -lgsl -lgslcblas -ldarksusy -lFH -lHB -lgfortran
+g++ -o FluxDensity FluxDensity.cpp  -I/home/alex/research/darksusy-5.1.2/include -L/home/alex/research/darksusy-5.1.2/lib -lgsl -lgslcblas -ldarksusy -lFH -lHB -lgfortran
 */
 
 //////////////////////////// routines for calling fortran/darksusy stuff /////////////////////////
@@ -53,9 +53,9 @@ class Cluster{
 	double alpha;		// D(E) ~ E^alpha
 
 	Cluster() :	name(""),
-				z(0), 						//redshift
-				rh(0),						//halo radius Mpc
-				B0(0), rcore(0)	,			//Bfield Params
+				z(0.0232), 						//redshift
+				rh(0.415),						//halo radius Mpc
+				B0(4.7), rcore(0.291)	,			//Bfield Params
 				root_dv(0.035)	,
 				alpha(1.0/3.0)				//DIffusion parameter, not really a cluster thing but easy access is good
 
@@ -67,8 +67,8 @@ class Cluster{
 
 		double beta = 0.75;
 		double eta = 0.5;
-
-		double B_field = B0 * pow(( 1 + r*r/(rcore*rcore)),(-1.5*beta*eta));		// Storm et al 2013 
+		double rc = rcore*mpc2cm;
+		double B_field = B0 * pow(( 1 + r*r/(rc*rc)),(-1.5*beta*eta));		// Storm et al 2013 
 
 		return B_field;
 
@@ -420,9 +420,9 @@ double dndeeq(double E, double r ){
 	double dndeeq = pow(4*pi , -1.0/2.0)*(1 / c.bloss(E,r))* pow(c.DM_profile(r) , -2.0)*diffsum ;	//gslInt_diffusion(E, r);	
 	/*////////after algorithm
 	duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
-	if (duration > 0.1)
-	std::cout << "dndeeq(E = "<< E  << " , r = " << r/mpc2cm*1000 << " ) --> " << duration << std::endl;
-	*/
+	if (duration > 0.1)*/
+	//std::cout << "dndeeq(E = "<< E  << " , r = " << r/mpc2cm*1000 << " ) = " << dndeeq <<  std::endl;
+	
 	return dndeeq;
 
 }
@@ -430,32 +430,38 @@ double dndeeq(double E, double r ){
 //SYnchrotron emmission spectral function form Cola2006.
 double fff(double x){
 
-	double fff = 1.25 * pow( x , 1.0/3.0) * exp( -x )* pow((648 + x*x) , 1.0/12.0);
+	double fff = 1.25 * pow( x , 1.0/3.0) * exp(-x) * pow((648 + x*x) , 1.0/12.0);
 
 	return fff;
 }
 
 double dpsyn(double theta, void * params ){
 
-	double nu = 1.4;	//Ghz
+	//double nu = 0.02;	//Ghz
+	std::vector<double> psynParams = *(std::vector<double> *)params;
+	double E = psynParams[0];
+	double r = psynParams[1];
+	double nu = psynParams[2];
+
 
 	double psyn0 = 1.46323e-25 ; // Gev/s/Hz
 	double x0 = 62.1881 ;			// dimensionless constant
-	double nu_em = ( 1 + c.z )* nu; // (observing freq)*(1+z)
+	double nu_em = ( 1 + c.z )* nu/1000; // (observing freq)*(1+z)/100 convert from Ghz to MHz 
 
-	std::vector<double> psynParams = *(std::vector<double> *)params;
 
-	double x = x0 *nu_em / ( c.bfield_model( psynParams[1] ) * pow( psynParams[0] , 2)	 );
-	std::cout << "x = " << x  << " B = " << c.bfield_model(psynParams[1]) << std::endl;
-	double dpsyn = psyn0 * c.bfield_model(psynParams[1]) * 0.5 * pow(  sin(theta) , 2)* fff( x  /sin(theta) ); 
+	//std::cout << E << " , " << r/mpc2cm*1000 << std::endl;
+
+	double x = x0 *nu_em / ( c.bfield_model( r ) * pow( E , 2) );
+	//std::cout << "x = " << x  << " B = " << c.bfield_model( r ) << std::endl;
+	double dpsyn = psyn0 * c.bfield_model(r) * 0.5 * pow(  sin(theta) , 2) * fff( x  /sin(theta) ); 
 	
 	
-
+	//std::cout << " dpsyn = "<< dpsyn << ", B = " << c.bfield_model(r) << std::endl;
 	return dpsyn;
 
 }
 
-double gslInt_psyn(  double E, double r){			//int over theta
+double gslInt_psyn(  double nu, double E, double r){			//int over theta
 
 		
 	gsl_integration_workspace * w 
@@ -463,11 +469,11 @@ double gslInt_psyn(  double E, double r){			//int over theta
 
 	double result, error;
 
-	std::vector<double> psynParams (2);
+	std::vector<double> psynParams (3);
 
 	psynParams[0] = E;
 	psynParams[1] = r;
-
+	psynParams[2] = nu;
 
 	gsl_function F;
 	F.function = &dpsyn;
@@ -485,17 +491,18 @@ double gslInt_psyn(  double E, double r){			//int over theta
 
 double djsyn(double E , void * params){
 
-	double r = *(double *)params;
+	std::vector<double> jsynParams = *(std::vector<double> *)params;
+	double nu = jsynParams[0];
+	double r = jsynParams[1];
 
-
-	double djsyn = 2* gslInt_psyn(E, r)* dndeeq(E , r);
+	double djsyn = 2* gslInt_psyn(nu, E, r)* dndeeq(E , r);
 
 
 	return djsyn;
 }
 
 
-double gslInt_jsyn(double r){ 				// int over E
+double gslInt_jsyn(double nu, double r){ 				// int over E
 
 			///////////
 	std::clock_t start;
@@ -509,13 +516,16 @@ double gslInt_jsyn(double r){ 				// int over E
 		= gsl_integration_workspace_alloc (1000);
 
 	double result, error;
+	std::vector<double> jsynParams (2);
 
+	jsynParams[0] = nu;
+	jsynParams[1] = r;
 
 	gsl_function F;
 	F.function = &djsyn;
-	F.params = &r;
+	F.params = &jsynParams;
 
-	gsl_integration_qags (&F, me, p.mx, 0, 1e-3, 1000,
+	gsl_integration_qags (&F, me, p.mx, 0, 1e-2, 1000,
 	                    w, &result, &error); 
 
 
@@ -523,7 +533,7 @@ double gslInt_jsyn(double r){ 				// int over E
 
 	duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
 	std::cout << "alpha = "<< c.alpha << ", jsyn( r = " << r/mpc2cm*1000 <<" ) duration: " << duration <<std::endl;  //      ~30s-60s
-
+	//std::cout << " . ";
 
 
 	return result;
@@ -533,15 +543,18 @@ double gslInt_jsyn(double r){ 				// int over E
 
 double dssyn( double r, void * params ){
 
+	double nu = *(double *)params;
+
+
 	double dist_z = Dist() / (1+c.z);
 
-	double ssynIntegrand = 4 *pi /pow(dist_z , 2) *pow(r,2)  *  pow(c.DM_profile(r) , 2)*gslInt_jsyn(r);	
+	double ssynIntegrand = 4 *pi /pow(dist_z , 2) *pow(r,2)  *  pow(c.DM_profile(r) , 2)*gslInt_jsyn(nu, r);	
 	
 	return ssynIntegrand;
 }
 
 
-double gslInt_ssyn( double r ){				// int over r
+double gslInt_ssyn( double nu, double r ){				// int over r
 
 	gsl_integration_workspace * w 
 		= gsl_integration_workspace_alloc (1000);
@@ -552,173 +565,70 @@ double gslInt_ssyn( double r ){				// int over r
 
 	gsl_function F;
 	F.function = &dssyn;
-	//F.params = &mx;
+	F.params = &nu;
 
-	gsl_integration_qags (&F, 1e-16, r, 0, 1e-3, 1000,
+	gsl_integration_qags (&F, 1e-16, r, 0, 1e-2, 1000,
 	                w, &result, &error); 
-
+	 result *= GevJy*sv/(8* pi*pow( p.mx , 2.0 ));
 	return result;
 
 }
 
-
-double min_flux(double r){
-
-	double thetaB = 25.0; // beam size in arcsec
-	double frms  = 1e-5; //noise per beam in Jy
-
-	double dist_z = Dist() / (1.0 + c.z);
-
-	double thetaH = r/dist_z * 180.0/pi * 3600.0;
-
-	double min_flux = 4.0 * log(2.0) * frms * pow(thetaH/thetaB, 2.0); 
-
-	return min_flux;
-}
-
-
-double Calc_sv(double r){ // potentially add ch, z here?
+void runFlux(double mx, double r){ //runs through values of root_dv
 	
-	double Sin =  gslInt_ssyn(r) * GeVJy ; 
-	double Sout = min_flux(r);
-
-	double sv = 8*pi * pow(p.mx, 2) * (Sout/Sin);
-
-	return sv ; 
-
-}
-
-void runComa(int ch){
-	
-	p.ch = ch;							//darksusy channel
-
-	c.name = "Coma"; 						
-	c.z = 0.0232; 						//redshift
-	c.rh = 0.415;						//halo radius Mpc
-	c.B0 = 4.7;			
-	//c.alpha = 1.0/3.0;			//	
-	c.rcore = 0.291*mpc2cm;				//
+	p.mx = mx;
+	int n = 50;
 
 
-	double rcm = c.rh * mpc2cm ; 
-	double rmax = rconst(rcm);
+	//total time timer start
+	std::clock_t start;
+	double duration;
+	start = std::clock();
+	int a ; 
+	///////before algorithm
 
-	std::string channel;
-
-	if(p.ch == 13){
-		channel = "WW";
-	}
-	else if(p.ch == 15){
-		channel = "ee";
-	}
-	else if(p.ch == 17){
-		channel = "mumu";
-	}
-	else if(p.ch == 19){
-		channel = "tt";
-	}
-	else if(p.ch == 25){
-		channel = "bb";
-	};
-
-	
-	/*std::ostringstream makefilename;
-	makefilename << c.name << "_" << channel << "_alpha_" <<c.alpha <<".txt" ;
+	std::ostringstream makefilename;
+	makefilename << "Flux_" << p.mx << "Gev_coma.txt" ;
 	std::string filename = makefilename.str();
-	std::ofstream file(filename.c_str());*/
+	std::ofstream file(filename.c_str());
+
+	for (int i = 0 ; i < n + 1; ++i  ){
 
 
-	int n_mx = 50 ;//number of mx values used
-
-
-
-
-	for (int i = 0 ; i < n_mx + 1 ; ++i){
-
-		// iteration timer start
-		std::clock_t start;
-		double duration;
-		start = std::clock();
-		int a ; 
-		///////before algorithm
-
-			double mx_min = 40;
-			double mx_max = 1000;
-			double data;
-
-			p.mx = mx_min * ( exp(    (log(mx_max) - log(mx_min))/ n_mx * i));
-			data = Calc_sv(rmax);
-			//file << p.mx << "\t" <<  data <<std::endl;
-			std::cout << "sv( " << p.mx << " ) = " << data << std::endl;
-		////////after algorithm
-		duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
-		std::cout << i << "/"<< n_mx << " ";
-		std::cout << p.ch << ", alpha = " << c.alpha << ", time = " << duration <<std::endl;
+		double nu_min = 10;
+		double nu_max = 10e5;
+	
+		double nu = nu_min * ( exp(    (log(nu_max) - log(nu_min))/ n * i));
+		double data = gslInt_ssyn( nu , r);
+		file << nu << "\t" <<  data <<std::endl;
+		std::cout << "\n" << nu << "\t" << data << std::endl;
 
 	};
-
-//end runComa()
+	
+	////////after algorithm
+	duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
+	std::cout << "Total time:  " << duration <<std::endl;
 }
-
-
-void alphaPrint(){
-
-	std::cout << c.alpha << std::endl;
-}
-
+//NOTE that we need to set a cross section for this, use eq 1 in STorm for Snu.
 
 main(){
-	//total time timer start
-	std::clock_t start;
-	double duration;
-	start = std::clock();
-	int a ; 
-	///////before algorithm
+	dsinit_(); //initialixe DarkSUSY
 	
-		dsinit_(); //initialixe DarkSUSY
 
-		//runComa(13);
-		//runComa(15);
-		//runComa(17);
-		//runComa(19);
-		//runComa(25);
+	double r = c.rh*mpc2cm;
+	p.ch = 25;							//darksusy channel
+	//std::cout << c.bfield_model(r) << std::endl;
+ 	runFlux( 40, r );
 
 
-		c.alpha = 0.7;
-		runComa(25);
-
-		c.alpha = 0.75;
-		runComa(25);
-
-		c.alpha = 0.9;
-		runComa(25);
+	p.ch = 13;							//darksusy channel
+	//std::cout << c.bfield_model(r) << std::endl;
+	runFlux( 81, r ) ;
 
 
-	////////after algorithm
-	duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
-	std::cout << "Total time:  " << duration <<std::endl;
+
 }
 
 
 
 
-
-/*
-	//total time timer start
-	std::clock_t start;
-	double duration;
-	start = std::clock();
-	int a ; 
-	///////before algorithm
-
-
-
-
-	////////after algorithm
-	duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
-	std::cout << "Total time:  " << duration <<std::endl;
-
-
-
-
-	*/

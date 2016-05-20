@@ -446,7 +446,7 @@ double dpsyn(double theta, void * params ){
 	std::vector<double> psynParams = *(std::vector<double> *)params;
 
 	double x = x0 *nu_em / ( c.bfield_model( psynParams[1] ) * pow( psynParams[0] , 2)	 );
-	std::cout << "x = " << x  << " B = " << c.bfield_model(psynParams[1]) << std::endl;
+	//std::cout << "x = " << x  << " B = " << c.bfield_model(psynParams[1]) << std::endl;
 	double dpsyn = psyn0 * c.bfield_model(psynParams[1]) * 0.5 * pow(  sin(theta) , 2)* fff( x  /sin(theta) ); 
 	
 	
@@ -497,7 +497,7 @@ double djsyn(double E , void * params){
 
 double gslInt_jsyn(double r){ 				// int over E
 
-			///////////
+		///////////
 	std::clock_t start;
 	double duration;
 	start = std::clock();
@@ -515,13 +515,14 @@ double gslInt_jsyn(double r){ 				// int over E
 	F.function = &djsyn;
 	F.params = &r;
 
-	gsl_integration_qags (&F, me, p.mx, 0, 1e-3, 1000,
+	gsl_integration_qags (&F, me, p.mx, 0, 1e-2, 1000,
 	                    w, &result, &error); 
 
 
 	gsl_integration_workspace_free (w);
 
 	duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
+
 	std::cout << "alpha = "<< c.alpha << ", jsyn( r = " << r/mpc2cm*1000 <<" ) duration: " << duration <<std::endl;  //      ~30s-60s
 
 
@@ -554,7 +555,7 @@ double gslInt_ssyn( double r ){				// int over r
 	F.function = &dssyn;
 	//F.params = &mx;
 
-	gsl_integration_qags (&F, 1e-16, r, 0, 1e-3, 1000,
+	gsl_integration_qags (&F, 1e-16, r, 0, 1e-2, 1000,
 	                w, &result, &error); 
 
 	return result;
@@ -628,7 +629,7 @@ void runComa(int ch){
 	std::ofstream file(filename.c_str());*/
 
 
-	int n_mx = 50 ;//number of mx values used
+	int n_mx = 35 ;//number of mx values used
 
 
 
@@ -642,7 +643,7 @@ void runComa(int ch){
 		int a ; 
 		///////before algorithm
 
-			double mx_min = 40;
+			double mx_min = 5;
 			double mx_max = 1000;
 			double data;
 
@@ -683,14 +684,10 @@ main(){
 		//runComa(19);
 		//runComa(25);
 
-
-		c.alpha = 0.7;
+		c.alpha = 1.2;
 		runComa(25);
 
-		c.alpha = 0.75;
-		runComa(25);
-
-		c.alpha = 0.9;
+		c.alpha = 1.5;
 		runComa(25);
 
 

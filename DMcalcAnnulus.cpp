@@ -221,7 +221,7 @@ double v( double E ){
 	F.function = &dv;
 
 
-	gsl_integration_qags (&F, E, p.mx, 0, 1e-3, 1000, 
+	gsl_integration_qags (&F, E, p.mx, 0, 1e-1, 1000, 
 	                w, &result, &error); 
 
 	gsl_integration_workspace_free (w);
@@ -363,7 +363,7 @@ double gslInt_Green(double ri,  double root_dv){
 	F.function = &dGreens;
 	F.params = &greenParam;
 
-	gsl_integration_qags (&F, 1e-16, rh, 0, 1e-3, 1000, //x?
+	gsl_integration_qags (&F, 1e-16, rh, 0, 1e-1, 1000, //x?
 	                w, &result, &error); 
 
 	gsl_integration_workspace_free (w);
@@ -393,15 +393,15 @@ double ddiffusion(double Ep, void * params){
 	std::vector<double> diffusionParams = *(std::vector<double> *)params;
 
 	double E = diffusionParams[0];
-	double ri = diffusionParams[1] ;
-	double vE = diffusionParams[2];
-	double rootdv = diffusionParams[3];
+	//double ri = diffusionParams[1] ;
+	//double vE = diffusionParams[2];
+	//double rootdv = diffusionParams[3];
 
 	//double upmax = U(Ep);
 
 	//double rootdv = 0.035*mpc2cm ; // root_dv( Ep, vE); // 	//		 
 
-	double ddiffusion = darksusy(Ep) * (1.0/rootdv) * gslInt_Green(ri, rootdv);
+	double ddiffusion = darksusy(Ep) ;//* (1.0/rootdv) * gslInt_Green(ri, rootdv);
 
 	return ddiffusion;
 
@@ -409,10 +409,10 @@ double ddiffusion(double Ep, void * params){
 
 double gslInt_diffusion( double E,  double ri){			// int over Ep
 
-	double vE = v(E);
+	//double vE = v(E);
 	double Ep = (p.mx + E) /2;
 	//std::cout << Ep << std::endl;
-	double rootdv = sqrt(vE);//root_dv(Ep, vE);
+	//double rootdv = sqrt(vE);//root_dv(Ep, vE);
 	//std::cout << rootdv << std::endl;
 	//std::cout << "umax:  " << umax << std::endl;
 		
@@ -424,15 +424,15 @@ double gslInt_diffusion( double E,  double ri){			// int over Ep
 	std::vector<double> diffusionParams (4);
 
 	diffusionParams[0] = E;
-	diffusionParams[1] = ri;
-	diffusionParams[2] = vE;
-	diffusionParams[3] = rootdv;
+	//diffusionParams[1] = ri;
+	//diffusionParams[2] = vE;
+	//diffusionParams[3] = rootdv;
 
 	gsl_function F;
 	F.function = &ddiffusion;
 	F.params = &diffusionParams; 								//pass Ep to rootdv(), pass r from dndeeq as well, 
 	gsl_set_error_handler_off();
-	gsl_integration_qags (&F, E, p.mx, 0, 1e-3, 1000, 
+	gsl_integration_qags (&F, E, p.mx, 0, 1e-1, 1000, 
 	                    w, &result, &error); 
 
 	gsl_integration_workspace_free (w);
@@ -442,20 +442,20 @@ double gslInt_diffusion( double E,  double ri){			// int over Ep
 }
 
 double dndeeq(double E, double r ){
-
-	/*//total time timer start
+/*
+	//total time timer start
 	std::clock_t start;
 	double duration;
 	start = std::clock();
 	int a ; 
-	///////before algorithm*/
+	///////before algorithm
 
-
+*/
 	double rh = c.rh * mpc2cm ;
-	int imNum = 7; //number of image pairs + 1
+	int imNum = 4; //number of image pairs + 1
 	double diffsum = 0 ;
 
-
+/*
 	for (int i = - imNum; i < imNum + 1; ++i ){
 
 
@@ -469,15 +469,15 @@ double dndeeq(double E, double r ){
 		diffsum += pow(-1, i) * gslInt_diffusion(E, ri);
 
 
-	}
+	}*/
 
-	double dndeeq = pow(4*pi , -1.0/2.0)*(1 / c.bloss(E,r))* pow(c.DM_profile(r) , -2.0)*diffsum ;	//gslInt_diffusion(E, r);	
+	double dndeeq = (1 / c.bloss(E,r))*gslInt_diffusion(E,r); //* pow(c.DM_profile(r) , -2.0)pow(4*pi , -1.0/2.0)*diffsum ;	//gslInt_diffusion(E, r);	
 
-				////////after algorithm
-	//duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
-	//if (duration >= 0.1)
-		//std::cout << "dndeeq time( E = " << E << "  r = " << r/mpc2cm*1000 << "  ):  " << duration <<std::endl;
 
+/*				////////after algorithm
+	duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
+	std::cout << "dndeeq time( E = " << E << "  r = " << r/mpc2cm*1000 << "  ):  " << duration <<std::endl;
+*/
 
 	return dndeeq;
 
@@ -574,14 +574,14 @@ double gslInt_jsyn(double r){ 				// int over E
 	F.function = &djsyn;
 	F.params = &r;
 
-	gsl_integration_qags (&F, me, p.mx, 0, 1e-3, 1000,
+	gsl_integration_qags (&F, me, p.mx, 0, 1e-2, 1000,
 	                    w, &result, &error); 
 
 
 	gsl_integration_workspace_free (w);
 
 	duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
-	std::cout << "jsyn( r = " << r/mpc2cm*1000 <<" ) duration: " << duration <<std::endl;  //      ~30s-60s
+	//std::cout << "jsyn( r = " << r/mpc2cm*1000 <<" ) duration: " << duration <<std::endl;  //      ~30s-60s
 
 	//std::cout << "ints: " << w -> size << std::endl;
 
@@ -597,7 +597,7 @@ double dssyn( double r ){
 
 	double dist_z = Dist() / (1+c.z);
 
-	double ssynIntegrand = 4 *pi /pow(dist_z , 2) /*pow(r,2)*/  *  pow(c.DM_profile(r) , 2)*gslInt_jsyn(r);	
+	double ssynIntegrand = 4 *pi /pow(dist_z , 2)/* pow(r,2)  */ * pow(c.DM_profile(r) , 2)*gslInt_jsyn(r);	
 	
 	return ssynIntegrand;
 }
@@ -605,28 +605,36 @@ double dssyn( double r ){
 
 double Ssyn(double rmax){
 	
-	double  n = 10; //number of rings
+	double  n = 5000; //number of rings
 	double dr = rmax/n ; 
 
 	double rn = dr/2;
-	double dz;
 	double Ssyn = 0; 
 	
 	for ( int i = 0 ; i < n  ; ++i){
-		
-		dz = sqrt( pow(rmax , 2) - pow( rn, 2));
-		double dsyn = 4 * pi * rn * dssyn(rn) * dr*dz;
+		double ri = rmax - i * dr;
+		if (ri == rmax)
+			ri = rmax - dr/2;
 
-		/*
-		std::cout << " diff " << (pow(rmax , 2) - pow( rn, 2)) <<std::endl;
-		*/
-		rn += dr;
+		double rii = rmax - (i + 1) * dr;
+		if (rii == 0)
+			rii = ri - dr/2;
+
+
+		//std::cout << "ri = " << ri/mpc2cm*1000 <<  " r(i+1) = " << rii/mpc2cm*1000 << std::endl;
+
+		double dsyn = 1.0/ 3.0 * dssyn(ri) * ( pow(ri, 3.0) - pow ( rii ,  3.0)) ;
+
+		
+		//std::cout << " dsyn(rii="<<rii/mpc2cm*1000 << ") " << dsyn <<std::endl;
+		
 		Ssyn += dsyn;
 		/*
 		std::cout << i << " rn: " << rn/mpc2cm*1000 <<std::endl;
 		std::cout << i << " dz: " << dz/mpc2cm*1000 <<std::endl;
 		std::cout << i << " Ssyn: " << Ssyn <<std::endl;*/
 	} ;
+	std::cout << "Ssyn " << Ssyn *GeVJy * 4.7e-25/(8* pi*pow( p.mx , 2.0 )) << std::endl;
 
 	return Ssyn;
 }
@@ -715,7 +723,7 @@ void runComa(int ch){
 
 	
 	std::ostringstream makefilename;
-	makefilename << c.name << "_" << channel << "Annulus2.txt" ;
+	makefilename << c.name << "_" << channel << "Annulus.txt" ;
 	std::string filename = makefilename.str();
 	
 
@@ -763,7 +771,11 @@ void runComa(int ch){
 		duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
 		std::cout << p.ch << " time = " << i << " " << duration <<std::endl;
 
-	};
+	};	
+p.mx = 40;
+std::cout << "40 GeV --> " << Calc_sv(rmax) << std::endl;
+
+
 
 //end runComa()
 }

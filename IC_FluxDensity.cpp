@@ -1,7 +1,7 @@
-// 4-19-16
-//
-// Diffusion Equation with spatial diffusion, diffusion const independent of spatial coordinate -> D(E). Uses GSL and Darksusy
-//
+////////////////////////////////////////////////////
+////		FluxDensity.cpp 			5-19-16  ///
+////////////////////////////////////////////////////
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -19,7 +19,7 @@
 
 /* to compile and run, use command 
 
-g++ -o DMcalc DMcalc.cpp  -I/home/alex/research/darksusy-5.1.2/include -L/home/alex/research/darksusy-5.1.2/lib -lgsl -lgslcblas -ldarksusy -lFH -lHB -lgfortran
+g++ -o IC_FluxDensity IC_FluxDensity.cpp  -I/home/alex/research/darksusy-5.1.2/include -L/home/alex/research/darksusy-5.1.2/lib -lgsl -lgslcblas -ldarksusy -lFH -lHB -lgfortran
 */
 
 //////////////////////////// routines for calling fortran/darksusy stuff /////////////////////////
@@ -52,11 +52,10 @@ class Cluster{
 
 	double alpha;		// D(E) ~ E^alpha
 
-
 	Cluster() :	name(""),
-				z(0), 						//redshift
-				rh(0),						//halo radius Mpc
-				B0(0), rcore(0)	,			//Bfield Params
+				z(0.0232), 						//redshift
+				rh(0.415),						//halo radius Mpc
+				B0(4.7), rcore(0.291)	,			//Bfield Params
 				root_dv(0.035)	,
 				alpha(1.0/3.0)				//DIffusion parameter, not really a cluster thing but easy access is good
 
@@ -68,8 +67,8 @@ class Cluster{
 
 		double beta = 0.75;
 		double eta = 0.5;
-
-		double B_field = B0 * pow(( 1 + r*r/(rcore*rcore)),(-1.5*beta*eta));		// Storm et al 2013 
+		double rc = rcore*mpc2cm;
+		double B_field = B0 * pow(( 1 + r*r/(rc*rc)),(-1.5*beta*eta));		// Storm et al 2013 
 
 		return B_field;
 
@@ -77,7 +76,7 @@ class Cluster{
 
 	double bloss(double E , double r){
 
-		double bloss = 0.0253*pow(bfield_model(r), 2)*E*E 					//bsyn bfield_model(r)
+		double bloss = 0.0253*pow(bfield_model(r), 2)*E*E 					//bIC bfield_model(r)
 						+ 0.265 * pow(1 + z, 4 )*E*E  					//bIC
 						+ 1.51*n*(0.36 + log(E/me/n) )			//+ 1.51*n*(0.36 + log(E/me) )*E						//bbrem Note this is most likely incorrect, no factor of E, and should be E/me/nin log
 						+ 6.13*n*( 1 + log(E/me/n)/75); 					//bcoul
@@ -92,7 +91,7 @@ class Cluster{
 		double ne = 1.3e-3;
 		double Bmu = 1;													//should us average or something later
 
-		double bloss = 0.0254*pow(Bmu, 2.0)*E*E 								//bsyn bfield_model(r)
+		double bloss = 0.0254*pow(Bmu, 2.0)*E*E 								//bIC bfield_model(r)
 						+ 0.25 /** pow(1 + c.z, 4 )*/*E*E  					//bIC
 						+ 1.51*ne*(0.36 + log(E/me/ne) )						//brem , in Emma's code  has + 1.51*n*(0.36 + log(E/me) )*E
 						+ 6.13*ne*( 1 + log(E/me/ne)/75); 					//bcoul
@@ -138,7 +137,7 @@ class Particle {
 	double mx;
 	double sv;
 
-	Particle() : ch(0) , mx(0), sv(0){}
+	Particle() : ch(0) , mx(0), sv(4.7e-25){}
 
 };
 
@@ -170,7 +169,7 @@ double v( double E ){
 	gsl_function F;
 	F.function = &dv;
 
-
+	gsl_set_error_handler_off();
 	gsl_integration_qags (&F, E, p.mx, 0, 1e-1, 1000, 
 	                w, &result, &error); 
 
@@ -253,7 +252,7 @@ double dGreens(double rp,  void * params){
 
 }
 /*
-double GreenSum (double rp, void * params) {  //called by ddsyn
+double GreenSum (double rp, void * params) {  //called by ddIC
 
 	std::vector<double> greenParam = *(std::vector<double> *)params;
 
@@ -349,7 +348,7 @@ double ddiffusion(double Ep, void * params){
 
 	//double rootdv = root_dv( Ep, vE); // 0.035*mpc2cm ; //  	//		 
 
-	double ddiffusion = darksusy(Ep) * (1.0/rootdv) * gslInt_Green(ri, rootdv);
+	double ddiffusion = darksusy(Ep) ;//* (1.0/rootdv) * gslInt_Green(ri, rootdv);
 
 	return ddiffusion;
 
@@ -402,7 +401,7 @@ double dndeeq(double E, double r ){
 	double rh = c.rh * mpc2cm ;
 	int imNum = 4; //number of image pairs + 1, total points = 2*imNum + 1
 	double diffsum = 0 ;
-
+/*
 
 	for (int i = - imNum; i < imNum + 1; ++i ){
 
@@ -417,46 +416,75 @@ double dndeeq(double E, double r ){
 		diffsum += pow(-1, i) * gslInt_diffusion(E, ri);
 
 	}
-std::cout << "E = " << E << "r = " << r /mpc2cm*1000<< "bloss" << c.bloss(E,r) <<std::endl;
-	double dndeeq = pow(4*pi , -1.0/2.0)*(1 / c.bloss(E,r))* pow(c.DM_profile(r) , -2.0)*diffsum ;	//gslInt_diffusion(E, r);	
+
+	*/
+	double dndeeq = (1 / c.bloss(E,r))*gslInt_diffusion(E, r);	//pow(4*pi , -1.0/2.0)* pow(c.DM_profile(r) , -2.0)*diffsum ;
 	/*////////after algorithm
 	duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
-	if (duration > 0.1)
-	std::cout << "dndeeq(E = "<< E  << " , r = " << r/mpc2cm*1000 << " ) --> " << duration << std::endl;
-	*/
+	if (duration > 0.1)*/
+	//std::cout << "dndeeq(E = "<< E  << " , r = " << r/mpc2cm*1000 << " ) = " << dndeeq <<  std::endl;
+	//dndeeq *= sqrt(4*pi) * pow(c.DM_profile(r) , 2.0)/ (2*imNum+1);
 	return dndeeq;
 
 }
 
-//SYnchrotron emmission spectral function form Cola2006.
-double fff(double x){
+double G(double eps, double E_gamma, double boost){
 
-	double fff = 1.25 * pow( x , 1.0/3.0) * exp( -x )* pow((648 + x*x) , 1.0/12.0);
-
-	return fff;
-}
-
-double dpsyn(double theta, void * params ){
-
-	double nu = 1.4;	//Ghz
-
-	double psyn0 = 1.46323e-25 ; // Gev/s/Hz
-	double x0 = 62.1881 ;			// dimensionless constant
-	double nu_em = ( 1 + c.z )* nu; // (observing freq)*(1+z)
-
-	std::vector<double> psynParams = *(std::vector<double> *)params;
-
-	double x = x0 *nu_em / ( c.bfield_model( psynParams[1] ) * pow( psynParams[0] , 2)	 );
-	//std::cout << "x = " << x  << " B = " << c.bfield_model(psynParams[1]) << std::endl;
-	double dpsyn = psyn0 * c.bfield_model(psynParams[1]) * 0.5 * pow(  sin(theta) , 2)* fff( x  /sin(theta) ); 
-	
+	//double boost = E/(me * pow( clight , 2))
+	double GAMMA = 4 * eps * boost/me;
+	double q = E_gamma / (GAMMA * (boost * me  - E_gamma) );
 	
 
-	return dpsyn;
-
+	double G = 2 * q* log(q) + (1+2*q)*( 1 - q ) + pow(GAMMA*q , 2)*(1-q) / ( 2*(1+GAMMA*q ) );//
+	//if (G<0)
+	//std::cout << "G( eps = " << eps <<", "<< "E_gamma = " << E_gamma << " , boost = " << boost << " ) = "<< G<<std::endl;	
+	return G;
 }
 
-double gslInt_psyn(  double E, double r){			//int over theta
+
+
+
+double IC_cross_Section( double eps, double E_gamma, double E){
+
+
+	double boost = E/me;
+
+	double sigma_thompson = 6.6524e-25;
+
+	double sigma = 3 * sigma_thompson/(4* eps * pow(boost ,2))* G(eps, E_gamma, boost);
+//if (sigma<0)
+//	std::cout << "sigma( eps = " << eps <<", "<< "E_gamma = " << E_gamma << " , E = "<<E<<" ) = "<< sigma<<std::endl;
+	return sigma;
+}
+
+double CMB_bbSpectrum(double eps){
+	//double hplanckGeV = J2Gev*hplanck;
+	//kb *= J2Gev;
+	double T = 2.73;
+
+	double nu = eps/(hplanck*J2Gev);
+	//std::cout << "nu = " << nu << std::endl;
+	double CMB_bbSpectrum = 8*pi* pow(nu, 2.0)/pow(clight, 3.0)	/(	exp(hplanck * nu /(kb * T )) - 1	);
+	//std::cout << "nu("<< eps <<")  = " << nu <<  " spectrum = " << CMB_bbSpectrum << std::endl;;//CMB_bbSpectrum  << std::endl;
+
+	return CMB_bbSpectrum;
+}
+
+double dpIC(double eps, void * params ){
+
+	//double nu = 0.02;	//Ghz
+	std::vector<double> pICParams = *(std::vector<double> *)params;
+	double E_gamma = pICParams[0] ;
+	double E = pICParams[1] ;
+	
+
+	double dpIC = CMB_bbSpectrum(eps) *  IC_cross_Section( eps, E_gamma,  E);
+	//std::cout << dpIC<<std::endl;
+	return dpIC;
+}
+
+
+double gslInt_pIC(double nu, double E){			//int over eps
 
 		
 	gsl_integration_workspace * w 
@@ -464,41 +492,50 @@ double gslInt_psyn(  double E, double r){			//int over theta
 
 	double result, error;
 
-	std::vector<double> psynParams (2);
+	std::vector<double> pICParams (2);
 
-	psynParams[0] = E;
-	psynParams[1] = r;
+	double E_gamma = hplanck * nu * J2Gev;
+	double boost = E/me;
+	pICParams[0] = E_gamma;
+	pICParams[1] = E;
 
+	double eps_max = E_gamma / (1 - E_gamma/(boost*me) );
+	double eps_min = E_gamma / (4 * boost*( boost - E_gamma/me));
 
 	gsl_function F;
-	F.function = &dpsyn;
-	F.params = &psynParams;
-
-	gsl_integration_qags (&F, 1e-16, pi, 0, 1e-3, 1000, //x?
+	F.function = &dpIC;
+	F.params = &pICParams;
+	gsl_set_error_handler_off();
+	gsl_integration_qags (&F, eps_min, eps_max,  0, 1e-3, 1000, //x?
 	                    w, &result, &error); 
 
 	gsl_integration_workspace_free (w);
 
+	result *= clight * E_gamma;
+	
+	//std::cout << "pIC( nu = " << nu <<", "<< "E_gamma = " << E_gamma << " , E = "<<E<<" ) = "<< result<<std::endl;
+	
 	return result;
 
 }
 
 
-double djsyn(double E , void * params){
+double djIC(double E , void * params){
 
-	double r = *(double *)params;
+	std::vector<double> jICParams = *(std::vector<double> *)params;
+	double nu = jICParams[0];
+	double r = jICParams[1];
 
+	double djIC = 2* gslInt_pIC(nu, E)* dndeeq(E , r);
+//std::cout << "pIC = " << gslInt_pIC(nu, E) << "  dndeeq = " << dndeeq(E,r) <<std::endl;
 
-	double djsyn = 2* gslInt_psyn(E, r)* dndeeq(E , r);
-
-
-	return djsyn;
+	return djIC;
 }
 
 
-double gslInt_jsyn(double r){ 				// int over E
+double gslInt_jIC(double nu, double r){ 				// int over E
 
-		///////////
+			///////////
 	std::clock_t start;
 	double duration;
 	start = std::clock();
@@ -510,40 +547,47 @@ double gslInt_jsyn(double r){ 				// int over E
 		= gsl_integration_workspace_alloc (1000);
 
 	double result, error;
+	std::vector<double> jICParams (2);
 
+	jICParams[0] = nu;
+	jICParams[1] = r;
 
 	gsl_function F;
-	F.function = &djsyn;
-	F.params = &r;
+	F.function = &djIC;
+	F.params = &jICParams;
 
 	gsl_integration_qags (&F, me, p.mx, 0, 1e-2, 1000,
 	                    w, &result, &error); 
 
 
 	gsl_integration_workspace_free (w);
-
+	
+	//std::cout << " . ";
 	duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
 
-	std::cout << "alpha = "<< c.alpha << ", jsyn( r = " << r/mpc2cm*1000 <<" ) duration: " << duration <<std::endl;  //      ~30s-60s
-
-
+	//std::cout << "jIC( r = " << r/mpc2cm*1000 <<" )  = "<<result<<" duration: " << duration <<std::endl;  //      ~30s-60s	
 
 	return result;
 
 }
 
 
-double dssyn( double r, void * params ){
+double dsIC( double r, void * params ){
+
+	double nu = *(double *)params;
+
 
 	double dist_z = Dist() / (1+c.z);
 
-	double ssynIntegrand = 4 *pi /pow(dist_z , 2) *pow(r,2)  *  pow(c.DM_profile(r) , 2)*gslInt_jsyn(r);	
+	double sICIntegrand = 4 *pi /pow(dist_z , 2) *pow(r,2)  *  pow(c.DM_profile(r) , 2)*gslInt_jIC(nu, r);
+
+		//std::cout << "sICIntegrand = " <<sICIntegrand<<std::endl;
 	
-	return ssynIntegrand;
+	return sICIntegrand;
 }
 
 
-double gslInt_ssyn( double r ){				// int over r
+double gslInt_sIC( double nu, double r ){				// int over r
 
 	gsl_integration_workspace * w 
 		= gsl_integration_workspace_alloc (1000);
@@ -553,170 +597,79 @@ double gslInt_ssyn( double r ){				// int over r
 
 
 	gsl_function F;
-	F.function = &dssyn;
-	//F.params = &mx;
+	F.function = &dsIC;
+	F.params = &nu;
 
-	gsl_integration_qags (&F, 1e-16, r, 0, 1e-2, 1000,
+	gsl_integration_qags (&F, 1e-16, r, 0, 1e-3, 1000,
 	                w, &result, &error); 
 
+
+
+
+
+
+	//std::cout <<"result = " << result <<std::endl;
+	result *= 0.00160218 * p.sv/(8* pi*pow( p.mx , 2.0 ));
+	//	std::cout <<"new result  = " << result <<std::endl;
 	return result;
 
 }
 
-
-double min_flux(double r){
-
-	double thetaB = 25.0; // beam size in arcsec
-	double frms  = 1e-5; //noise per beam in Jy
-
-	double dist_z = Dist() / (1.0 + c.z);
-
-	double thetaH = r/dist_z * 180.0/pi * 3600.0;
-
-	double min_flux = 4.0 * log(2.0) * frms * pow(thetaH/thetaB, 2.0); 
-
-	return min_flux;
-}
-
-
-double Calc_sv(double r){ // potentially add ch, z here?
+void runFlux(double mx, double r){ //runs through values of root_dv
 	
-	double Sin =  gslInt_ssyn(r) * GeVJy ; 
-	double Sout = min_flux(r);
+	p.mx = mx;
+	int n_nu = 50;
 
-	double sv = 8*pi * pow(p.mx, 2) * (Sout/Sin);
 
-	return sv ; 
+	//total time timer start
+	std::clock_t start;
+	double duration;
+	start = std::clock();
+	int a ; 
+	///////before algorithm
 
-}
-
-void runComa(int ch){
-	
-	p.ch = ch;							//darksusy channel
-
-	c.name = "Coma"; 						
-	c.z = 0.0232; 						//redshift
-	c.rh = 0.415;						//halo radius Mpc
-	c.B0 = 4.7;			
-	//c.alpha = 1.0/3.0;			//	
-	c.rcore = 0.291*mpc2cm;				//
-
-	double rcm = c.rh * mpc2cm ; 
-	double rmax = rconst(rcm);
-
-	double mx_min = 5;
-	double mx_max = 1000;
-	double data;
-
-	std::string channel;
-
-	if(p.ch == 13){
-		channel = "WW";
-	}
-	else if(p.ch == 15){
-		channel = "ee";
-	}
-	else if(p.ch == 17){
-		channel = "mumu";
-	}
-	else if(p.ch == 19){
-		channel = "tt";
-	}
-	else if(p.ch == 25){
-		channel = "bb";
-	};
-
-	/*
 	std::ostringstream makefilename;
-	makefilename << c.name << "_express_" << channel << "_alpha_" <<c.alpha <<".txt" ;
+	makefilename << "IC_SED_NSD_JUNK" << p.mx << "Gev_coma.txt" ;
 	std::string filename = makefilename.str();
 	std::ofstream file(filename.c_str());
-	*/
+
+	for (int i = 0 ; i < n_nu + 1; ++i  ){
 
 
-	int n_mx = 35 ;//number of mx values used
-
-
-
-
-	for (int i = 0 ; i < n_mx + 1 ; ++i){
-
-		// iteration timer start
-		std::clock_t start;
-		double duration;
-		start = std::clock();
-		int a ; 
-		///////before algorithm
-
-			p.mx = mx_min * ( exp(    (log(mx_max) - log(mx_min))/ n_mx * i));
-
-
-
-			data = Calc_sv(rmax);
-			//file << p.mx << "\t" <<  data <<std::endl;
-			std::cout << "sv( " << p.mx << " ) = " << data << std::endl;
-		////////after algorithm
-		duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
-		std::cout << i << "/"<< n_mx << " ";
-		std::cout << p.ch << ", alpha = " << c.alpha << ", time = " << duration <<std::endl;
+		double nu_min = 1e10;
+		double nu_max = 1e25;
+	
+		double nu = nu_min * ( exp(    (log(nu_max) - log(nu_min))/ n_nu * i));
+		double data = gslInt_sIC( nu , r)*nu ;
+		file << log10(nu) << "\t" <<  data <<std::endl;
+		std::cout << i<< "/" << n_nu << " " << log10(nu) << "\t" << data << std::endl;
 
 	};
-
-//end runComa()
+	
+	////////after algorithm
+	duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
+	std::cout << "Total time:  " << duration <<std::endl;
 }
-
-
-void alphaPrint(){
-
-	std::cout << c.alpha << std::endl;
-}
-
+//NOTE that we need to set a cross section for this, use eq 1 in STorm for Snu.
 
 main(){
-	//total time timer start
-	std::clock_t start;
-	double duration;
-	start = std::clock();
-	int a ; 
-	///////before algorithm
+	dsinit_(); //initialixe DarkSUSY
 	
-		dsinit_(); //initialixe DarkSUSY
 
-		//runComa(13);
-		//runComa(15);
-		//runComa(17);
-		//runComa(19);
-		//runComa(25);
-
-		c.alpha = 1.0/3.0;
-		runComa(25);
+	double r = c.rh*mpc2cm;
+	p.ch = 25;							//darksusy channel
+	//std::cout << c.bfield_model(r) << std::endl;
+ 	runFlux( 40, r );
 
 
-	////////after algorithm
-	duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
-	std::cout << "Total time:  " << duration <<std::endl;
+	p.ch = 13;							//darksusy channel
+	//std::cout << c.bfield_model(r) << std::endl;
+	runFlux( 81, r ) ;
+
+
+
 }
 
 
 
 
-
-/*
-	//total time timer start
-	std::clock_t start;
-	double duration;
-	start = std::clock();
-	int a ; 
-	///////before algorithm
-
-
-
-
-	////////after algorithm
-	duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
-	std::cout << "Total time:  " << duration <<std::endl;
-
-
-
-
-	*/

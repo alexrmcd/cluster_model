@@ -52,13 +52,19 @@ class Cluster{
 
 	double alpha;		// D(E) ~ E^alpha
 
+	double n;
+	std::vector<double> vlookup;
 
 	Cluster() :	name(""),
 				z(0), 						//redshift
 				rh(0),						//halo radius Mpc
 				B0(0), rcore(0)	,			//Bfield Params
 				root_dv(0.035)	,
-				alpha(1.0/3.0)				//DIffusion parameter, not really a cluster thing but easy access is good
+				alpha(1.0/3.0)	,			//DIffusion parameter, not really a cluster thing but easy access is good
+				n(1000000),
+				vlookup(n)
+
+
 
 	{	//everything labelled or Coma, sgould work in user options
 		std::cout << "creating cluster... " << std::endl;
@@ -76,11 +82,12 @@ class Cluster{
 	};	
 
 	double bloss(double E , double r){
+		double ne = 1e-3;
 
 		double bloss = 0.0253*pow(bfield_model(r), 2)*E*E 					//bsyn bfield_model(r)
 						+ 0.265 * pow(1 + z, 4 )*E*E  					//bIC
-						+ 1.51*n*(0.36 + log(E/me/n) )			//+ 1.51*n*(0.36 + log(E/me) )*E						//bbrem Note this is most likely incorrect, no factor of E, and should be E/me/nin log
-						+ 6.13*n*( 1 + log(E/me/n)/75); 					//bcoul
+						+ 1.51*ne*(0.36 + log(E/me/ne) )			//+ 1.51*n*(0.36 + log(E/me) )*E						//bbrem Note this is most likely incorrect, no factor of E, and should be E/me/nin log
+						+ 6.13*ne*( 1 + log(E/me/ne)/75); 					//bcoul
 
 		bloss = bloss *1e-16;	
 
@@ -246,7 +253,7 @@ double dGreens(double rp,  void * params){
 	std::vector<double> greenParam = *(std::vector<double> *)params;
 	double ri = greenParam[0] ;
 	double root_dv = greenParam[1];
-
+	//std::cout << "rdv = " << root_dv/mpc2cm*1000 << std::endl;
 	double dGreens = rp/ri* pow( c.DM_profile(rp) , 2.0) * (exp( - pow( (rp-ri)/( 2*root_dv ) , 2)) - exp( - pow( ( rp + ri)/(2*root_dv) , 2)) ) ;
 
 	return dGreens;
@@ -323,7 +330,7 @@ double gslInt_Green(double ri,  double root_dv){
 	duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
 	std::cout << "greens duration: " << duration << std::endl;
 	*/	///////
-	//std::cout << "greens = " << result << std::endl;
+
 	return result;
 
 }
@@ -344,12 +351,12 @@ double ddiffusion(double Ep, void * params){
 
 	double E = diffusionParams[0];
 	double ri = diffusionParams[1] ;
-	double vE = diffusionParams[2];
-	double rootdv = diffusionParams[3];
+	//double vE = diffusionParams[2];
+	double rootdv = diffusionParams[2];
 
 	//double rootdv = root_dv( Ep, vE); // 0.035*mpc2cm ; //  	//		 
 
-	double ddiffusion = darksusy(Ep) * (1.0/rootdv) * gslInt_Green(ri, rootdv);
+	double ddiffusion = darksusy(Ep) * (1.0/rootdv)  * gslInt_Green(ri, rootdv);
 
 	return ddiffusion;
 
@@ -357,11 +364,16 @@ double ddiffusion(double Ep, void * params){
 
 double gslInt_diffusion( double E,  double ri){			// int over Ep
 
-	double vE = v(E);
-	double Ep = (p.mx + E) /2;
-	//std::cout << Ep << std::endl;
-	double rootdv = sqrt(vE); //gives max value for rootdv//root_dv(Ep, vE); //
-	//std::cout << rootdv << std::endl;
+	//double vE = v(E);
+
+	//double Ep = (p.mx + E) /2;
+	//std::cout << E << std::endl;
+	//double scale = 0.001;
+	//double Es = (int)(E*c.n/p.mx);
+	//std::cout <<  sqrt(vE)/mpc2cm*1000 << "   "<<sqrt(c.vlookup[ E*c.n/p.mx ])/mpc2cm*1000 <<std::endl;;
+	//std::cout << Es << " LUT = " << sqrt(c.vlookup[ Es ])/mpc2cm*1000 << std::endl;
+	double rootdv =sqrt(c.vlookup[E*c.n/p.mx])/mpc2cm ;//0.035*mpc2cm ;//sqrt(c.vlookup[ Es ]); //gives max value for rootdv//root_dv(Ep, vE); //
+
 	//std::cout << "umax:  " << umax << std::endl;
 		
 	gsl_integration_workspace * w 
@@ -369,12 +381,12 @@ double gslInt_diffusion( double E,  double ri){			// int over Ep
 
 	double result, error;
 
-	std::vector<double> diffusionParams (4);
+	std::vector<double> diffusionParams (3);
 
 	diffusionParams[0] = E;
 	diffusionParams[1] = ri;
-	diffusionParams[2] = vE;
-	diffusionParams[3] = rootdv;
+	//diffusionParams[2] = vE;
+	diffusionParams[2] = rootdv;
 
 	gsl_function F;
 	F.function = &ddiffusion;
@@ -384,7 +396,7 @@ double gslInt_diffusion( double E,  double ri){			// int over Ep
 	                    w, &result, &error); 
 
 	gsl_integration_workspace_free (w);
-		//std::cout << "result: " <<result << std::endl;
+
 	return result;
 
 }
@@ -417,13 +429,14 @@ double dndeeq(double E, double r ){
 		diffsum += pow(-1, i) * gslInt_diffusion(E, ri);
 
 	}
-std::cout << "E = " << E << "r = " << r /mpc2cm*1000<< "bloss" << c.bloss(E,r) <<std::endl;
+
 	double dndeeq = pow(4*pi , -1.0/2.0)*(1 / c.bloss(E,r))* pow(c.DM_profile(r) , -2.0)*diffsum ;	//gslInt_diffusion(E, r);	
 	/*////////after algorithm
 	duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
 	if (duration > 0.1)
 	std::cout << "dndeeq(E = "<< E  << " , r = " << r/mpc2cm*1000 << " ) --> " << duration << std::endl;
 	*/
+
 	return dndeeq;
 
 }
@@ -524,7 +537,7 @@ double gslInt_jsyn(double r){ 				// int over E
 
 	duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
 
-	std::cout << "alpha = "<< c.alpha << ", jsyn( r = " << r/mpc2cm*1000 <<" ) duration: " << duration <<std::endl;  //      ~30s-60s
+	std::cout << "alpha = "<< c.alpha << ", jsyn( r = " << r/mpc2cm*1000 <<" ) = "<< result <<"duration: " << duration <<std::endl;  //      ~30s-60s
 
 
 
@@ -626,12 +639,11 @@ void runComa(int ch){
 		channel = "bb";
 	};
 
-	/*
+	
 	std::ostringstream makefilename;
 	makefilename << c.name << "_express_" << channel << "_alpha_" <<c.alpha <<".txt" ;
 	std::string filename = makefilename.str();
 	std::ofstream file(filename.c_str());
-	*/
 
 
 	int n_mx = 35 ;//number of mx values used
@@ -650,15 +662,38 @@ void runComa(int ch){
 
 			p.mx = mx_min * ( exp(    (log(mx_max) - log(mx_min))/ n_mx * i));
 
+				// iteration timer start
+				std::clock_t vstart;
+				double vduration;
+				vstart = std::clock();
+				int va ; 
+				///////before algorithm
+				std::cout << "creating LUT..." <<std::endl; 
+				//std::cout << root_dv(E, 5 , mx) << std::endl; 
+				for (int j = 0 ; j < c.n +1; ++j ){
 
+					double dE = p.mx/c.n;
+					//std::cout << j << "  " << j*dE<< std::endl;
+					c.vlookup[j] = v(j*dE);
+					//if (j % 1000 == 0)
+					//	std::cout << "." ; 
+					//if(c.vlookup[j] < 0)
+					//std::cout <<p.mx << " rootv(E = " << j*dE << ") = " << sqrt(c.vlookup[j])/mpc2cm*1000 << std::endl;
+				}
+				//std::cout << "vlookup created..." << c.vlookup[] <<std::endl; 
+				////////after algorithm
+				vduration = (std::clock()  -  vstart)/(double) CLOCKS_PER_SEC;
+				std::cout << "vlookup time = " << vduration <<std::endl;
 
 			data = Calc_sv(rmax);
-			//file << p.mx << "\t" <<  data <<std::endl;
+			file << p.mx << "\t" <<  data <<std::endl;
 			std::cout << "sv( " << p.mx << " ) = " << data << std::endl;
+
 		////////after algorithm
 		duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
 		std::cout << i << "/"<< n_mx << " ";
 		std::cout << p.ch << ", alpha = " << c.alpha << ", time = " << duration <<std::endl;
+
 
 	};
 

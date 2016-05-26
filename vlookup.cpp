@@ -64,7 +64,7 @@ double D(double E){
 	//	std::cout << "D" << std::endl;
 
 	double Bmu = 1;	
-	double alpha = 1.0/3.0; //close to 1/3??
+	double alpha = 0.9; //close to 1/3??
 	double db = pow(20.0 , 2.0/3.0); //just a scaling factor
 	double D0 = 3.1e28; // cm/s
 
@@ -72,37 +72,6 @@ double D(double E){
 
 	return D;
 }
-
-
-
-double du(double Eu, void * params){
-
-	double du = 1.0/bloss(Eu);
-
-	return du;
-}
-
-
-
-double U(double E, double mx) {
-	//std::cout << "E in U: " << E<< std::endl;
-	gsl_integration_workspace * w 
-		= gsl_integration_workspace_alloc (5000);
-
-	double result, error;
-
-	gsl_function F;
-	F.function = &du;
-
-	gsl_integration_qags (&F, E, mx, 0, 1e-3, 5000, 
-	                w, &result, &error); 
-
-	gsl_integration_workspace_free (w);
-	//std::cout << "U(E, mx) : " << result << "  E :" << E   << std::endl;
-	return result;
-
-}
-
 
 
 double dv(double E , void * params){
@@ -123,7 +92,7 @@ double v( double E,  double mx ){
 	std::cout << "min: " << min << std::endl;
 */
 		gsl_integration_workspace * w 
-		= gsl_integration_workspace_alloc (5000);
+		= gsl_integration_workspace_alloc (1000);
 
 	double result, error;
 
@@ -131,12 +100,12 @@ double v( double E,  double mx ){
 	F.function = &dv;
 
 
-	gsl_integration_qags (&F, E, mx, 0, 1e-3, 5000, 
+	gsl_integration_qags (&F, E, mx, 0, 1e-3, 1000, 
 	                w, &result, &error); 
 
 	gsl_integration_workspace_free (w);
 
-	//result *= 1e16;
+	result *= 1e16;
 	return result;
 }
 
@@ -150,29 +119,84 @@ double root_dv(double E, double Ep, double mx ){
 	return root_dv;
 }
 
+void createLUT(double n_vLUT){
+		// iteration timer start
+	std::clock_t vstart;
+	double vduration;
+	vstart = std::clock();
+	int va ; 
+	///////before algorithm
+	//std::cout << "creating LUT..." <<std::endl; 
+	double mx = 88.7361;
+
+	std::vector<double> vlookup( n_vLUT + 1 );
+double scale = mx/n_vLUT;
+	//std::cout << root_dv(E, 5 , mx) << std::endl; 
+	for (int j = 0 ; j < n_vLUT +1; ++j ){
+
+		double dE = mx/n_vLUT;
+		//std::cout << j << "  " << j*dE<< std::endl;
+		vlookup[j] = v(j*dE, mx);
+		//std::cout << j << ", " << j*dE << " scaled = "<< (int)(j*dE/scale)<<std::endl;
+		//if(vlookup[j] > vlookup[0])
+		//std::cout <<j << " rootv(E = " << j*dE << ") = " << sqrt(vlookup[j])/mpc2cm*1000 << std::endl;
+	}
+	//std::cout << "vlookup created..." << c.vlookup[] <<std::endl; 
+	////////after algorithm
+	vduration = (std::clock()  -  vstart)/(double) CLOCKS_PER_SEC;
+	//std::cout << "vlookup time = " << vduration <<std::endl;
+	//std::cout << vlookup[0] <<" " <<vlookup[115] <<" "<<vlookup[1000]<< " "<<std::endl;
+
+double E = (int)(me/scale) ;
+double Ep = (int)(100/scale) ;
+	std::cout<< n_vLUT << " V(E = "<<E<<") = "<< vlookup[me] << ", V(Ep = "<<Ep<<") = " << vlookup[Ep]<< " rdv = " << sqrt(vlookup[E]- vlookup[Ep])/mpc2cm*1000<< std::endl;;
+}
 
 main(){
 
-	double mx  = 1000;
-	double E = 0.0005 ;
+
+	double E = me;
 	//total time timer start
 	std::clock_t start;
 	double duration;
 	start = std::clock();
 	int a ; 
 	///////before algorithm
+	double Ep = 0.01265;
+	std::cout << E << std::endl;
+	std::cout << Ep << std::endl;
+	double scale = 0.01;
+	E = (int)(E/scale)*scale;
+	std::cout << (int)(Ep/scale);
+	//Ep = (int)(Ep/scale)*scale;
+	std::cout << E << std::endl;
+	std::cout << Ep << std::endl;
 
+createLUT(10);
+createLUT(100);
+createLUT(1000);
+createLUT(10000);
+
+
+
+/*
 	//std::cout << root_dv(E, 5 , mx) << std::endl; 
-	for (int i = 0 ; i < mx +1 ; ++i ){
+	for (int i = 0 ; i < n +1; ++i ){
 		//std::cout << i << " v(Ep) =  "  << sqrt ( v( i, mx)  )/mpc2cm * 1000 << std::endl;
-		
+		double dE = mx/n;
+
+		vlookup[i] = v(i*dE, mx);
+
+		std::cout << "rootdv(" << i*dE << ") = " << 1e8*sqrt(vlookup[i])/mpc2cm*1000 <<std::endl; 
+
 		//root_dv(E, i, mx) ;
-		std::cout << i << " rdv = "   << root_dv(E, i, mx) << std::endl;
+		//std::cout << i << " rdv = "   << root_dv(E, i, mx) << std::endl;
 
-	}
+	}*/
 
-	std::cout   << v(1,mx) - v(5,mx) << std::endl;
+	//std::cout   << v(1,mx) - v(5,mx) << std::endl;
 	//std::cout << " Umax(E = .511) : " << v(0,5,  mx) << std::endl;
+
 
 	////////after algorithm
 	duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;

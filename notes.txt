@@ -1,4 +1,71 @@
 ------------- Notes for Coding---------------
+5-25-16
+Building lookup table for Greens, seems to be working well, ~2 min for n_r = 500, n_rdv = 1000; 
+	gives diff at r=200 rdv=25 of 0.00078, so about rel-err of 1e-4.
+running n_rdv at 10000, taking considerably slower, but will see. certainly should be worth implementing at least as a trial, will have to test accuracy of greens function for diff profiles.
+
+** for n_r = 500 n_rdv =10000, no diff in diff, testing with higher n_r
+
+**
+nevermind, possible mistake importing to xmgrace, retry these values for n_r = 1000 n_rdv = 10000, no diff really, best to just go with n_r = 500 and n_rdv = 1000 
+reran-- no diff, stick with (500, 1000)
+
+
+note that bringing n_r inside the int casting does not work, gives messed up text file.
+
+-->consider making n_r = rh(kpc), must cast rh as int.could double this as well
+
+
+
+
+5-24-16
+
+DMcalcLUT1 running well, as well as vlookup.
+need fairly decent epsrel for the v integral, ~1e5 should work, if you run into problems just up this, doesnt have huge effect on overall time ~2s per mass. could throw a wrench in the greens plans, but at least greens wont throw an error.
+
+also, make sure scale is set as mx/n_LUT. problm in the last one.
+
+ran alpha = 3/2 overnight, total time ~3.5 hrs (12000s)
+
+
+
+
+
+
+--------------
+IC code should be runnning well, took about 6-7 minutes to run with no SD, didnt come out well, tweak output to give nu*Snu in erg cm^-2s^-1
+as well as log(nu) to match Colafranceso.
+
+
+
+
+
+
+5-21-16
+LUTEXACT stopped last night, fixed things with lookup table, just ran:
+
+DMcalcLUT1 Full exact --> 16400 s
+technically 5-21-16
+	THink I have the LUT working. LUT gives correct values, issue of implementation. will see tomorrow plotting express,NSD, MAX, and express full, 
+	worthwhile to note that full is slower by ~2, but without LUT would be slower by ~20s so not bad, consider switch?
+
+LUTZOOM.jpg , LUTZMax.jpg compare LUTX_MAX w/ NSD and MAX, LUTZEXACT running... forget names of actual txtx files, should be apparent. 
+
+
+todo 5-20-16
+	run dmcalctest2 with alpha = 1/3 to check accuracy of current operation(ie low precision Scd integral)
+	compare dndeeq max with exact
+	write Pic code
+	--lookup table for dv,
+	latex
+	ln dnde vs E maybe, not much a priority
+
+5-19-16 
+removed dsinit.o and dshayield.o from pwd, incase theres issuesmight want them back, seems just linking libraries works? could be an issue with compiling later.
+
+3 alpha values --> 13600 s
+
+future --> calc dndeeq(max dv)/ dndeeq(actual)
 
 5-17-16
 time for test2 67788.6

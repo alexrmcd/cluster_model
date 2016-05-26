@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////
-///				Greens.cpp					  5-19-16 ///
+///				GreensLUT.cpp					  5-25-16 ///
 /////////////////////////////////////////////////////////
 
 /*
@@ -32,7 +32,7 @@ double DM_profile(double r){
     double rhos = 0.039974 ;//DM char density in Gev /cm^3 Storm13 (Mathematica)
     double rs = 0.404*mpc2cm;  //DM scale radius in Mpc Storm13  (Mathematica)
     double rc = 0.241 *mpc2cm;
-     
+    
     // NFW
     double rho = rhos / ( r/rs * pow(1 + r/rs , 2 )); //x? + 1e-100
 	
@@ -41,8 +41,8 @@ double DM_profile(double r){
     // Berkert
     double rho = rhos / ((1+ r/rc) * (1 + pow(r/rc , 2 ))); //shouldnt use rhos here, different rho
 	*/
-
-	/*// N04
+/*
+	// N04
 	double rho = rhos * exp(-2.0/0.17 * ( pow(r/rc, 0.17) - 1 ));
  */
 
@@ -115,38 +115,96 @@ double Greens (double r, double root_dv) {  //called by ddsyn
 			ri = r;
 		else
 			ri = (pow(-1 , i)*r + 2*i*rh);
-		//std::cout << i << std::endl;
+
 		Gsum += pow(-1, i) * gslInt_Greens(ri, r, root_dv, rh);
 
 	}
 
 	double Greens = pow(4*pi , -1.0/2.0)*Gsum ;
-	//std::cout << Greens << std::endl;
+
 
 	return Greens;
 
 };
 
-void runGreens(double r){ //runs through values of root_dv
+
+
+std::vector<double> createLUT(double n_r, double n_rootdv){
+	// iteration timer start
+	std::clock_t Gstart;
+	double Greensduration;
+	Gstart = std::clock();
+	int Ga ; 
+	///////before algorithm
+	std::cout << "creating LUT..." <<std::endl; 
+
+	std::vector<double> Greens_lookup( n_r * n_rootdv );
+
+	double rh = 415*mpc2cm/1000;
+	double r_scale = rh/n_r;
+
+	double rootdv_max = 40*mpc2cm/1000;
+	double rootdv_scale = rootdv_max/n_rootdv;
 	
+
+	std::cout << r_scale/mpc2cm*1000 << " , rdv_max = "<<rootdv_max<<" n_rootdv = " <<n_rootdv <<" rdv_scale = " << rootdv_scale/mpc2cm*1000 << std::endl; 
+	
+
+	for (int j = 1 ; j < n_r ; ++j ){
+		
+		double dr = rh/n_r;
+		
+		for(int i = 1; i < n_rootdv ; ++i){
+			double drootdv = rootdv_max/n_rootdv;
+
+			Greens_lookup[j + n_r*i] = Greens(j*dr, i*rootdv_scale);
+
+			
+		}
+
+		std::cout << j << "/" << n_r <<std::endl;
+
+	////////after algorithm
+	Greensduration = (std::clock()  -  Gstart)/(double) CLOCKS_PER_SEC;
+	std::cout << "Glookup time = " << Greensduration <<std::endl;
+
+	return Greens_lookup;
+}
+
+
+void runGreens(double r){ //runs through values of root_dv
+	int n = 10000;
+	int n_r = 415;
+	int n_rootdv = 1000;
 	double root_dv = 0.04*mpc2cm;
-	int n = 1000;
+
 	double rk = mpc2cm/1000*r;
 	double h = root_dv/n;
 
+	double rh = 415*mpc2cm/1000;
+	double rootdv_max = 40*mpc2cm/1000;
+	double r_scale = rh/n_r;
+	double rootdv_scale = rootdv_max/n_rootdv;
+
+
+	std::vector<double> glookup = createLUT(n_r, n_rootdv);
 	std::ostringstream makefilename;
-	makefilename << "Greens_NFW_r" << r << "kpc" <<".txt" ;
+	makefilename << "Greens_NFW_r" << r << "kpc" <<"GLUTtest.txt" ;
 	std::string filename = makefilename.str();
 	std::ofstream file(filename.c_str());
 
-	for (int ix = 1 ; ix < n + 1; ++ix  ){
+	for (int ix = 0 ; ix < n ; ++ix  ){
+		double Gi  = (int)(rk/r_scale) +(int)( h*ix/rootdv_scale)*n_r;
+		
+		double data = glookup[Gi];
 
-		double data = Greens(rk, h*ix );
-
-		if(ix % 10000 == 0)
-			std::cout << ix/10000 << "/" << n /10000<< std::endl;;		
 		file << h*ix/mpc2cm*1000 << "\t" <<  data <<std::endl;
-		//std::cout << h*ix/mpc2cm*1000 << "\t" << data << std::endl;
+		std::cout << h*ix/mpc2cm*1000 << "\t" << data << std::endl;
+
+
+		if(ix % 1000 == 0)
+			std::cout << ix/1000 << "/" << n /100000<< std::endl;;		
+
 
 	};
 	
@@ -154,18 +212,27 @@ void runGreens(double r){ //runs through values of root_dv
 
 main(){
 
+
+
+
+
+//createLUT(415, 1000);
+/*
 	runGreens(1);
-	std::cout << "1/7" <<std ::endl;
-	/*runGreens(5);
+	std::cout << "1/2" <<std ::endl;
+	runGreens(5);
 	std::cout << "2/7" <<std ::endl;
 	runGreens(10);
 	std::cout << "3/7" <<std ::endl;
 	runGreens(50);
 	std::cout << "4/7" <<std ::endl;
 	runGreens(100);
-	std::cout << "5/7" <<std ::endl;
+	std::cout << "2/2" << std::endl;*/
+	//std::cout << "5/7" <<std ::endl;
 	runGreens(200);
 	std::cout << "6/7" <<std ::endl;
-	runGreens(500);
-	std::cout << "7/7" <<std ::endl;*/
+	//runGreens(500);
+	//std::cout << "7/7" <<std ::endl;
+
+
 }

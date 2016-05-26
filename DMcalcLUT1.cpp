@@ -53,6 +53,7 @@ class Cluster{
 	double alpha;		// D(E) ~ E^alpha
 
 	double n;
+	double scale;
 	std::vector<double> vlookup;
 
 	Cluster() :	name(""),
@@ -60,9 +61,10 @@ class Cluster{
 				rh(0),						//halo radius Mpc
 				B0(0), rcore(0)	,			//Bfield Params
 				root_dv(0.035)	,
-				alpha(1.0/3.0)	,			//DIffusion parameter, not really a cluster thing but easy access is good
-				n(1000000),
-				vlookup(n)
+				alpha(0.9)	,			//DIffusion parameter, not really a cluster thing but easy access is good
+				n(1000000),					//MUST CHANGE CONSTANT n->nele
+				vlookup(n),
+				scale(1)
 
 
 
@@ -178,7 +180,7 @@ double v( double E ){
 	F.function = &dv;
 
 
-	gsl_integration_qags (&F, E, p.mx, 0, 1e-1, 1000, 
+	gsl_integration_qags (&F, E, p.mx, 0, 1e-6, 1000, 
 	                w, &result, &error); 
 
 	gsl_integration_workspace_free (w);
@@ -254,8 +256,8 @@ double dGreens(double rp,  void * params){
 	double ri = greenParam[0] ;
 	double root_dv = greenParam[1];
 	//std::cout << "rdv = " << root_dv/mpc2cm*1000 << std::endl;
-	double dGreens = rp/ri* pow( c.DM_profile(rp) , 2.0) * (exp( - pow( (rp-ri)/( 2*root_dv ) , 2)) - exp( - pow( ( rp + ri)/(2*root_dv) , 2)) ) ;
-
+	double dGreens =  rp/ri* pow( c.DM_profile(rp) , 2.0) *(exp( - pow( (rp-ri)/( 2*root_dv ) , 2)) - exp( - pow( ( rp + ri)/(2*root_dv) , 2)) ) ;//
+	//std::cout <<  "root_dv = " << root_dv  << std::endl;
 	return dGreens;
 
 }
@@ -354,24 +356,30 @@ double ddiffusion(double Ep, void * params){
 	double vE = diffusionParams[2];
 	double r = diffusionParams[3];
 
-	double rootdv = sqrt(vE - c.vlookup[Ep*c.n/p.mx]); // 0.035*mpc2cm ; //  	//		 
+	double Ep_scaled = (int)(Ep/c.scale) ;
+	double rootdv = sqrt(vE - c.vlookup[Ep_scaled]); // 0.035*mpc2cm ; //  	//		 
 	//if (rootdv < 0.005*mpc2cm)
-	//std::cout << "v(E = "<<E<<") = "<< vE << ", v(Ep = "<<Ep<<") =  " <<c.vlookup[Ep*c.n/p.mx] << ", rootdv = "<< rootdv/mpc2cm *1000<<std::endl; 
-
+	//std::cout << "v(E = "<<E<<") = "<< vE << ", v(Ep = "<<Ep<<") =  " <<c.vlookup[Ep*c.n/p.mx] << ", rootdv = "<< rootdv/mpc2cm *1000; 
+	//std::cout << " rootdv = "<< rootdv/mpc2cm *1000<<std::endl; 
 	//std::cout << "root _dv(E = "<<E<<", Ep = "<<Ep<<"): " << rootdv/mpc2cm *1000<<std::endl; 
+	double a = gslInt_Green(ri, rootdv);
 	double ddiffusion;
 	if (rootdv == 0)
 		ddiffusion = darksusy(Ep)/9;//divide by imNum to cancel out sum * (1.0/rootdv)  * gslInt_Green(ri, rootdv);
 	else
-		ddiffusion = pow(4*pi , -1.0/2.0)*darksusy(Ep) * (1.0/rootdv)  * pow(c.DM_profile(r) , -2.0)*gslInt_Green(ri, rootdv);
-
+		ddiffusion = pow(4*pi , -1.0/2.0)*darksusy(Ep) * (1.0/rootdv)  * pow(c.DM_profile(r) , -2.0)*a;
+	//std::cout << "ddiffusion(E = "<<E << ", Ep = "<< Ep <<") =  " << ddiffusion <<" rdv = "<< rootdv/mpc2cm*1000<<std::endl;
+	//std::cout << "Greens(E = "<<E << ", Ep = "<< Ep <<") =  " << a <<" rdv = "<< rootdv/mpc2cm*1000<<std::endl;
+	//if(ddiffusion != ddiffusion)
+	//	std::cout << "v(E = "<<E<<") = "<< vE << ", v(Ep = "<<Ep <<" Ep_scaled"<<") =  " <<c.vlookup[Ep_scaled] << ", rootdv = "<< rootdv/mpc2cm *1000<<std::endl;; 
 	return ddiffusion;
 
 }
 
 double gslInt_diffusion( double E,  double ri, double r){			// int over Ep
-
-	double vE = c.vlookup[E*c.n/p.mx];
+	double E_scaled = (int)(E/c.scale);
+	double vE = c.vlookup[E_scaled];
+	//std::cout <<"E_scaled = " << E_scaled << std::endl;
 	//std::cout << c.n << " , " <<p.mx <<" ";
 	//double Ep = (p.mx + E) /2;
 	//std::cout <<E <<" -> vE = "<< vE << std::endl;
@@ -401,7 +409,7 @@ double gslInt_diffusion( double E,  double ri, double r){			// int over Ep
 	gsl_set_error_handler_off();
 	gsl_integration_qags (&F, E, p.mx, 0, 1e-1, 1000, 
 	                    w, &result, &error); 
-
+//std::cout << "result = " << result <<std::endl;
 	gsl_integration_workspace_free (w);
 
 	return result;
@@ -422,20 +430,21 @@ double dndeeq(double E, double r ){
 	int imNum = 4; //number of image pairs + 1, total points = 2*imNum + 1
 	double diffsum = 0 ;
 
-
-	for (int i = - imNum; i < imNum + 1; ++i ){
+	for (int i = -imNum; i < imNum + 1; ++i ){
 
 
 		double ri;
-		
+
 		if (i == 0)
 			ri = r;
-		else
+		else	
 			ri = (pow(-1 , i)*r + 2*i*rh);
+		
 
 		diffsum += pow(-1, i) * gslInt_diffusion(E, ri, r);
 
-	}
+
+	};
 
 	double dndeeq = (1 / c.bloss(E,r))* diffsum ;	//gslInt_diffusion(E, r);	
 	////////after algorithm
@@ -621,14 +630,14 @@ void createLUT(){
 	///////before algorithm
 	std::cout << "creating LUT..." <<std::endl; 
 	//std::cout << root_dv(E, 5 , mx) << std::endl; 
-	for (int j = 0 ; j < c.n +1; ++j ){
+	for (int j = 0 ; j < c.n ; ++j ){
 
-		double dE = p.mx/c.n;
+		c.scale = p.mx/c.n;
 		//std::cout << j << "  " << j*dE<< std::endl;
-		c.vlookup[j] = v(j*dE);
-
-		//if(c.vlookup[j] < 0)
-		//std::cout <<p.mx << " rootv(E = " << j*dE << ") = " << sqrt(c.vlookup[j])/mpc2cm*1000 << std::endl;
+		c.vlookup[j] = v(j*c.scale);
+/*
+		if(c.vlookup[j] > c.vlookup[0])
+		std::cout <<j << " rootv(E = " << j*c.scale << ") = " << sqrt(c.vlookup[j])/mpc2cm*1000 << std::endl;*/
 	}
 	//std::cout << "vlookup created..." << c.vlookup[] <<std::endl; 
 	////////after algorithm
@@ -672,16 +681,16 @@ void runComa(int ch){
 		channel = "bb";
 	};
 
-	/*
+	
 	std::ostringstream makefilename;
 	makefilename << c.name << "_express_" << channel << "_alpha_" <<c.alpha <<"FULL.txt" ;
 	std::string filename = makefilename.str();
-	std::ofstream file(filename.c_str());*/
+	std::ofstream file(filename.c_str());
 
 
 	int n_mx = 35 ;//number of mx values used
 p.mx = 88.7361;
-c.alpha = 0.9;
+ 
 createLUT();
 double rt = 6.9984/1000*mpc2cm;
 std::cout << dndeeq(0.000511, rt)<<std::endl;
@@ -699,7 +708,7 @@ std::cout << dndeeq(0.000511, rt)<<std::endl;
 
 			createLUT();
 			data = Calc_sv(rmax);
-	//		file << p.mx << "\t" <<  data <<std::endl;
+			file << p.mx << "\t" <<  data <<std::endl;
 			std::cout << "sv( " << p.mx << " ) = " << data << std::endl;
 
 		////////after algorithm
@@ -736,13 +745,10 @@ main(){
 		//runComa(19);
 		//runComa(25);
 
-		c.alpha = 0.9;
+		c.alpha = 3.0/2.0;
 
 		runComa(25);
-
-		c.alpha = 1.5;
-
-		runComa(25);
+		
 
 	////////after algorithm
 	duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;

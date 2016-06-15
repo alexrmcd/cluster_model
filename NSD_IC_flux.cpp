@@ -110,11 +110,11 @@ class Cluster{
 
 		double rc = rcore * mpc2cm;
 		//NFW
-		//double rho = rhos / ( r/rs * pow(1 + r/rs , 2 )); //x? + 1e-100
+		double rho = rhos / ( r/rs * pow(1 + r/rs , 2 )); //x? + 1e-100
 
 
 		// N04
-		double rho = (rho_N04) * exp(-2.0/0.17 * ( pow(r/rs_N04, 0.17) - 1 ));
+		//double rho = (rho_N04) * exp(-2.0/0.17 * ( pow(r/rs_N04, 0.17) - 1 ));
 
 
 		return rho;
@@ -256,8 +256,10 @@ double CMB_bbSpectrum(double eps){
 	double T = 2.73;
 
 	double nu = eps/(hplanck*J2Gev);
-	//std::cout << "nu = " << nu << std::endl;
+
 	double CMB_bbSpectrum = 8*pi* pow(nu, 2.0)/pow(clight, 3.0)	/(	exp(hplanck * nu /(kb * T )) - 1	);
+
+	
 	//if (CMB_bbSpectrum > 1000)
 	//std::cout << "nu("<< eps <<")  = " << nu <<  " spectrum = " << CMB_bbSpectrum << std::endl;;//CMB_bbSpectrum  << std::endl;
 
@@ -310,7 +312,7 @@ double gslInt_pIC(double nu, double E){			//int over eps
 
 	gsl_integration_workspace_free (w);
 
-	result *= clight * E_gamma; //convert clight to m.
+	result *= clight * E_gamma; 
 	
 	}
 	
@@ -441,7 +443,7 @@ void runFlux(double mx, double r){ //runs through values of root_dv
 	///////before algorithm
 
 	std::ostringstream makefilename;
-	makefilename << "IC_SED_NSD_JUNK" << p.mx << "Gev_coma.txt" ;
+	makefilename << "IC_SED_NSD" << p.mx << "Gev_coma.txt" ;
 	std::string filename = makefilename.str();
 	std::ofstream file(filename.c_str());
 

@@ -9,9 +9,12 @@ const
 	double OmegaM = 0.272 ; 		
 	double OmegaL = 0.728 ;
 	double me = 0.000511; 					//mass electron in Gev
+
+	
 	double GeVJy=1.6e20 ;   				//GeV/s/Hz/cm^2 to Jy
 	double J2Gev = 6.242e9; 				// Joule to GeV
 	double erg2GeV = 624.151;
+	
 	double n = 1e-3 ; 						//electron density
 	double hplanck = 6.6260700404e-34; 		// J*s
 	double kb = 1.38064852e-23; 			// J/K

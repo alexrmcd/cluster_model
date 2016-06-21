@@ -47,6 +47,7 @@ class Cluster{
 	double rh; //halo radius
 
 	double B0 ; 				//microGauss
+	double Bmu;
 	double rcore ; 		//0.291; //core radius in Mpc for coma
 	
 
@@ -63,17 +64,18 @@ class Cluster{
 
 	Cluster() :	name(""),
 				z(0.0232), 						//redshift
-				rh(0.415),						//halo radius Mpc
+				rh(1.0),						//halo radius Mpc
 				B0(4.7), rcore(291)	,			//Bfield Params
 				
-				alpha(1.0/3.0)	,			//DIffusion parameter, not really a cluster thing but easy access is good
+				alpha(1.0/1.3)	,
+				Bmu(1.0),		//DIffusion parameter, not really a cluster thing but easy access is good
 				
 				vsize(1000000),					//MUST CHANGE CONSTANT n->nele
 				vlookup(vsize),
 				vscale(1),
 				
 				n_r((int)(rh*1000) + 1),
-				n_rootdv(1000 + 1),
+				n_rootdv(10000 + 1),
 				rootdv_max(100),
 				GLUT( n_r , std::vector<double>(n_rootdv) )
 
@@ -110,7 +112,7 @@ class Cluster{
 
 	double bloss(double E ){ 												//overload so that we can just have bloss(E), could also have same as b(E, r) but set r=0 ??  kinda sloppy
 		double ne = 1.3e-3;
-		double Bmu = 1.;													//should us average or something lat
+		//double Bmu = 1.;													//should us average or something lat
 
 		double bloss = 0.0254*pow(Bmu, 2.0)*E*E 								//bsyn bfield_model(r)
 						+ 0.25 /** pow(1 + c.z, 4 )*/*E*E  					//bIC
@@ -137,7 +139,7 @@ class Cluster{
 
 	double D(double E){
 
-		double Bmu = 1;	
+		//double Bmu = 1;	
 		//double alpha = 1.0/3.0; //close to 1/3??
 		double db = pow(20.0 , 2.0/3.0); //just a scaling factor
 		double D0 = 3.1e28; // cm/s
@@ -191,7 +193,7 @@ double v( double E ){
 	F.function = &dv;
 
 
-	gsl_integration_qags (&F, E, p.mx, 0, 1e-7, 1000, 
+	gsl_integration_qags (&F, E, p.mx, 0, 1e-8, 1000, 
 	                w, &result, &error); 
 
 	gsl_integration_workspace_free (w);
@@ -375,7 +377,7 @@ double ddiffusion(double Ep, void * params){
 
 	if(r_int >= c.n_r)
 		r_int = c.n_r - 1;
-		
+
 	double ddiffusion = c.GLUT[r_int][rootdv_int] * darksusy(Ep);
 	if(isnan(c.GLUT[r_int][rootdv_int]) == 1)
 	std::cout << "GLUT " << c.GLUT[r_int][rootdv_int] << ", r = "<<r/mpc2cm*1000 << " r_int = "<< r_int <<", rootdv = " << rootdv/mpc2cm*1000<<std::endl;
@@ -705,7 +707,7 @@ void runComa(int ch){
 
 	
 	std::ostringstream makefilename;
-	makefilename << "061516_"<<c.name << "rdvMAX_" << channel << "_alpha_" <<c.alpha <<"TEST.txt" ;
+	makefilename << "NFW_D0x1_"<<c.name << "_" << channel << "_" <<c.alpha << "_"<< c.Bmu <<".txt" ;
 	std::string filename = makefilename.str();
 	std::ofstream file(filename.c_str());
 
@@ -756,15 +758,29 @@ main(){
 	
 		dsinit_(); //initialixe DarkSUSY
 
-		//runComa(13);
-		//runComa(15);
-		//runComa(17);
-		//runComa(19);
-		//runComa(25);
-
 
 		createGLUT();
-		runComa(25);
+		runComa(13);	//WW 
+		//runComa(15);	//ee
+		runComa(17);	//mumu
+		runComa(19);	//tt
+		runComa(25);	//bb
+
+		c.Bmu = 5;
+		createGLUT();
+		runComa(13);	//WW 
+		//runComa(15);	//ee
+		runComa(17);	//mumu
+		runComa(19);	//tt
+		runComa(25);	//bb
+
+		c.Bmu = 10;
+		createGLUT();
+		runComa(13);	//WW 
+		//runComa(15);	//ee
+		runComa(17);	//mumu
+		runComa(19);	//tt
+		runComa(25);	//bb
 
 		
 

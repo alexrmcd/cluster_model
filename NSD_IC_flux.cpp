@@ -88,7 +88,7 @@ class Cluster{
 
 	double bloss(double E ){ 												//overload so that we can just have bloss(E), could also have same as b(E, r) but set r=0 ??  kinda sloppy
 		double ne = 1.3e-3;
-		//double Bmu = 1;													//should us average or something later
+		//double Bmu = 10;													//should us average or something later
 
 		double bloss = 0.0254*pow(Bmu, 2.0)*E*E 								//bsyn bfield_model(r)
 						+ 0.25 /** pow(1 + c.z, 4 )*/*E*E  					//bIC
@@ -96,7 +96,7 @@ class Cluster{
 						+ 6.13*ne*( 1 + log(E/me/ne)/75); 					//bcoul
 
 		bloss = bloss *1e-16;	
-
+		//std::cout <<Bmu<<std::endl;
 		return bloss;
 	};
 
@@ -110,11 +110,11 @@ class Cluster{
 
 		double rc = rcore * mpc2cm;
 		//NFW
-		double rho = rhos / ( r/rs * pow(1 + r/rs , 2 )); //x? + 1e-100
+		//double rho = rhos / ( r/rs * pow(1 + r/rs , 2 )); //x? + 1e-100
 
 
 		// N04
-		//double rho = (rho_N04) * exp(-2.0/0.17 * ( pow(r/rs_N04, 0.17) - 1 ));
+		double rho = (rho_N04) * exp(-2.0/0.17 * ( pow(r/rs_N04, 0.17) - 1 ));
 
 
 		return rho;
@@ -227,7 +227,6 @@ double G(double eps, double E_gamma, double boost){
 	//double boost = E/(me * pow( clight , 2))
 	double GAMMA = 4 * eps * boost/me;
 	double q = E_gamma / (GAMMA * (boost * me  - E_gamma) );
-	
 
 	double G = 2 * q* log(q) + (1+2*q)*( 1 - q ) + pow(GAMMA*q , 2)*(1-q) / ( 2*(1+GAMMA*q ) );//
 	return G;
@@ -257,11 +256,11 @@ double CMB_bbSpectrum(double eps){
 
 	double nu = eps/(hplanck*J2Gev);
 
-	double CMB_bbSpectrum = 8*pi* pow(nu, 2.0)/pow(clight, 3.0)	/(	exp(hplanck * nu /(kb * T )) - 1	);
+	double CMB_bbSpectrum = 8*pi* pow(nu, 2.0)/pow(clight, 3.0)/(	exp(hplanck * nu /(kb * T )) - 1	);
 
 	
-	//if (CMB_bbSpectrum > 1000)
-	//std::cout << "nu("<< eps <<")  = " << nu <<  " spectrum = " << CMB_bbSpectrum << std::endl;;//CMB_bbSpectrum  << std::endl;
+	//if (CMB_bbSpectrum == 0)
+	//std::cout << CMB_bbSpectrum << "  , nu("<< eps <<")  = " << nu <<  " denom = " << 	exp(hplanck * nu /(kb * T )) -1<< std::endl;;//CMB_bbSpectrum  << std::endl;
 
 	return CMB_bbSpectrum;
 }
@@ -272,10 +271,17 @@ double dpIC(double eps, void * params ){
 	std::vector<double> pICParams = *(std::vector<double> *)params;
 	double E_gamma = pICParams[0] ;
 	double E = pICParams[1] ;
-	double eps_max = E_gamma*E/(E - E_gamma );//1.24e-12;//
-
-	double dpIC =   CMB_bbSpectrum(eps)*IC_cross_Section(eps, E_gamma, E);
-
+	
+	double q = pow(me,2)*E_gamma / ( 4 * eps * E * (E  - E_gamma) );
+	
+	double dpIC;
+	if( q>1 or q < 1/(4* pow(E/me , 2) ) or eps/hplanck/J2Gev > 1e13){
+		dpIC = 0;
+		//std::cout << eps/hplanck/J2Gev  <<std::endl;
+	}
+	else{
+		dpIC = CMB_bbSpectrum(eps) *  IC_cross_Section(eps, E_gamma, E); 
+	};
 	return dpIC;
 }
 
@@ -284,9 +290,10 @@ double gslInt_pIC(double nu, double E){			//int over eps
 
 		
 	gsl_integration_workspace * w 
-		= gsl_integration_workspace_alloc (1000);
+		= gsl_integration_workspace_alloc (5000);
 
 	double result, error;
+	size_t size;
 
 	std::vector<double> pICParams (2);
 
@@ -295,29 +302,32 @@ double gslInt_pIC(double nu, double E){			//int over eps
 	pICParams[0] = E_gamma;
 	pICParams[1] = E;
 
-	if(E_gamma >= E )
-		result = 0;
-	else{
+	//if(E_gamma >= E )
+	//	result = 0;
+	//else{
 	double eps_max = E_gamma*E/(E - E_gamma );//1.24e-12;//
 	double eps_min = E_gamma/(4 * boost/me*( E - E_gamma)); //1.24e-15;//
 	if(E<E_gamma)
-	std::cout << eps_min/hplanck/J2Gev << "  " << eps_max/hplanck/J2Gev <<"--> " <<E << " " <<E_gamma<<std::endl;
+		std::cout << eps_min/hplanck/J2Gev << "  " << eps_max/hplanck/J2Gev <<"--> " <<E << " " <<E_gamma<<std::endl;
 	
+	if (eps_max > 1e13*hplanck*J2Gev)
+		eps_max = 1e13*hplanck*J2Gev;
+
+
 	gsl_function F;
 	F.function = &dpIC;
 	F.params = &pICParams;
 	gsl_set_error_handler_off();
-	gsl_integration_qags (&F, eps_min, eps_max,  0, 1e-3, 1000, //x?
-	                    w, &result, &error); 
+	gsl_integration_qng (&F,  eps_min, eps_max,  0, 1e-3, &result, &error, &size); 
 
 	gsl_integration_workspace_free (w);
 
-	result *= clight * E_gamma; 
+	result *= clight* E_gamma; 
 	
-	}
 	
-	//std::cout << "pIC( nu = " << nu <<", "<< "E_gamma = " << E_gamma << " , E = "<<E<<" boost = "<<boost << " "<< E_gamma/(boost*me) << ") => "<< eps_min << " " << eps_max <<std::endl;
-	
+	//if(result != 0)
+	//std::cout << "pIC( nu = " << nu <<", "<< "E_gamma = " << E_gamma << " , E = "<<E<<" boost = "<<boost << " ) => " << eps_min/hplanck/J2Gev << " " << eps_max/hplanck/J2Gev <<std::endl;
+	//std::cout << "pIC( "<<E_gamma<<") = "<< result<<std::endl;
 	return result;
 
 }
@@ -330,8 +340,8 @@ double djIC(double E , void * params){
 	double r = jICParams[1];
 
 	double djIC = 2* gslInt_pIC(nu, E)* dndeeq(E , r);
-	if(djIC < 0)
-std::cout << "pIC ("<< nu <<")= " << gslInt_pIC(nu, E) << "  dndeeq = " << dndeeq(E,r) <<std::endl;
+	//if(djIC == 0)
+	//std::cout << djIC<<"  pIC ("<< nu <<")= " << gslInt_pIC(nu, E) << "  dndeeq = " << dndeeq(E,r) <<std::endl;
 
 	return djIC;
 }
@@ -360,7 +370,7 @@ double gslInt_jIC(double nu, double r){ 				// int over E
 	F.function = &djIC;
 	F.params = &jICParams;
 
-	gsl_integration_qags (&F, me , p.mx, 0, 1e-2, 1000,
+	gsl_integration_qags (&F, nu*hplanck*J2Gev , p.mx, 0, 1e-2, 1000,
 	                    w, &result, &error); 
 
 
@@ -369,7 +379,7 @@ double gslInt_jIC(double nu, double r){ 				// int over E
 	//std::cout << " . ";
 	duration = (std::clock()  -  start)/(double) CLOCKS_PER_SEC;
 	//std::cout << me << " " <<  p.mx << std::endl;
-	//std::cout << "jIC( r = " << r/mpc2cm*1000 <<" )  -> duration: " << duration <<std::endl;  //      ~30s-60s	
+	//std::cout << "jIC( r = " << r/mpc2cm*1000 <<" ) "<< result <<" -> duration: " << duration <<std::endl;  //      ~30s-60s	
 
 	return result;
 
@@ -384,8 +394,8 @@ double dsIC( double r, void * params ){
 	double dist_z = Dist() / (1+c.z);
 
 	double sICIntegrand = 4 *pi /pow(dist_z , 2) *pow(r,2)  *  pow(c.DM_profile(r) , 2)*gslInt_jIC(nu, r);
-if ( sICIntegrand < 0)
-		std::cout << "sICIntegrand = " <<sICIntegrand<<std::endl;
+//if ( sICIntegrand < 0)
+	//	std::cout << "sICIntegrand(r = "<< r/mpc2cm*1000<< ") = " <<sICIntegrand<<std::endl;
 	
 	return sICIntegrand;
 }
@@ -408,7 +418,7 @@ double gslInt_sIC( double nu, double r ){				// int over r
 	F.function = &dsIC;
 	F.params = &nu;
 
-	gsl_integration_qags (&F, 1e-16, r, 0, 1e-2, 1000,
+	gsl_integration_qags (&F, 1e-16, r, 0, 1e-1, 1000,
 	                w, &result, &error); 
 
 
@@ -416,9 +426,9 @@ double gslInt_sIC( double nu, double r ){				// int over r
 
 
 
-	//std::cout <<"result = " << result <<std::endl;
-	result *= 0.00160218 * p.sv/(8* pi*pow( p.mx , 2.0 ));
-	//	std::cout <<"new result  = " << result <<std::endl;
+	//std::cout <<"result = " << result <<", ";
+	result *=  0.00160218 *p.sv/(8* pi*pow( p.mx , 2.0 ));
+		//std::cout <<"new result  = " << result <<", nu = "<<nu<<std::endl;
 	return result;
 
 }
@@ -432,7 +442,7 @@ double gslInt_sIC( double nu, double r ){				// int over r
 void runFlux(double mx, double r){ //runs through values of root_dv
 	
 	p.mx = mx;
-	int n_nu = 50;
+	int n_nu = 35;
 
 
 	//total time timer start
@@ -454,8 +464,8 @@ void runFlux(double mx, double r){ //runs through values of root_dv
 		start = std::clock();
 		///////before algorithm
 
-		double nu_min = 1e16;
-		double nu_max = 1e19;
+		double nu_min = 1e12;
+		double nu_max = 1e24;
 	
 		double nu = nu_min * ( exp(    (log(nu_max) - log(nu_min))/ n_nu * i));
 		double data = gslInt_sIC( nu , r)*nu ;
@@ -483,10 +493,17 @@ main(){
 	
 
 	double r = c.rh*mpc2cm;
-	p.ch = 25;							//darksusy channel
+	p.ch = 25;				
+	p.mx = 40;			//darksusy channel
+	//std::cout << gslInt_sIC( pow(10, 17.5) , r)*pow(10, 17.5) << std::endl;
 	//std::cout << c.bfield_model(r) << std::endl;
  	runFlux( 40, r );
 
+	p.ch = 13;	
+	p.sv = 8.8e-26;	
+	c.Bmu = 8;					//darksusy channel
+	//std::cout << c.bfield_model(r) << std::endl;
+	runFlux( 81, r ) ;
 
 
 

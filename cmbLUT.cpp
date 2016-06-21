@@ -40,9 +40,9 @@ double CMB_bbSpectrum(double nu){
 	//kb *= J2Gev;
 	double T = 2.73;
 	//nu = pow(10, nu );
-	double nu = eps/(hplanck*J2Gev);
+	//double nu = eps/(hplanck*J2Gev);
 	//std::cout << "nu = " << nu << std::endl;
-	double CMB_bbSpectrum = 8*pi* pow(nu, 2.0)/pow(clight, 3.0)	/(	exp(hplanck * nu /(kb * T )) - 1	);
+	double CMB_bbSpectrum = 8*pi* pow(nu, 3.0)/pow(clight, 3.0)	/(	exp(hplanck * nu /(kb * T )) - 1	);
 	//std::cout << "nu("<< eps <<")  = " << nu <<  " spectrum = " << CMB_bbSpectrum << std::endl;;//CMB_bbSpectrum  << std::endl;
 
 	return CMB_bbSpectrum;
@@ -88,7 +88,7 @@ main(){
 
 
 	std::ostringstream makefilename;
-	makefilename << "CMB_LUT.txt" ;
+	makefilename << "nuCMB_LUT.txt" ;
 	std::string filename = makefilename.str();
 	std::ofstream file(filename.c_str());
 	std::vector<double> cmb= createLUT();

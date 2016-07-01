@@ -15,7 +15,7 @@ const
 	double J2Gev = 6.242e9; 				// Joule to GeV
 	double erg2GeV = 624.151;
 	
-	double n = 1e-3 ; 						//electron density
+	double nele = 1e-3 ; 						//electron density
 	double hplanck = 6.6260700404e-34; 		// J*s
 	double kb = 1.38064852e-23; 			// J/K
 	double SBoltzmann = 5.6704e-5; 			// in ergs
